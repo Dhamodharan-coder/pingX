@@ -7,7 +7,7 @@ import { consumeQuota } from './quota';
 import { findTemplateForSend, renderVersion } from './templates';
 
 const email = z.string().trim().toLowerCase().email().max(320);
-const recipients = z.union([email.transform((e) => [e]), z.array(email).min(1).max(50)]);
+const recipients = z.preprocess((v) => (typeof v === 'string' ? [v] : v), z.array(email).min(1).max(50));
 const MAX_SCHEDULE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const sendInputSchema = z
