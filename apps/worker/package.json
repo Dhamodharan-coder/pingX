@@ -1,0 +1,25 @@
+{
+  "name": "@pingx/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pingx/channels": "workspace:*",
+    "@pingx/shared": "workspace:*",
+    "bullmq": "^6.4.0",
+    "nodemailer": "^10.2.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@pingx/db": "workspace:*",
+    "@types/nodemailer": "^8.0.2",
+    "ioredis": "^6.0.0"
+  }
+}
