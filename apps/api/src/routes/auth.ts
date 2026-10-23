@@ -14,6 +14,7 @@ import { ipRateLimit } from '../middleware/rateLimit';
 import { usageToday } from '../services/quota';
 
 const REFRESH_COOKIE = 'pingx_rt';
+const COOKIE_PATH = `${env.PUBLIC_API_PREFIX}/auth`;
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const googleJwks = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
 
@@ -31,7 +32,7 @@ async function issueSession(res: Response, user: Pick<User, 'id' | 'role'>) {
     httpOnly: true,
     secure: env.COOKIE_SECURE,
     sameSite: 'lax',
-    path: '/auth',
+    path: COOKIE_PATH,
     maxAge: REFRESH_TTL_MS,
   });
   return { accessToken: await signAccessToken({ sub: user.id, role: user.role }) };
@@ -149,7 +150,7 @@ authRouter.post('/refresh', async (req, res) => {
 authRouter.post('/logout', async (req, res) => {
   const token = req.cookies?.[REFRESH_COOKIE] as string | undefined;
   if (token) await prisma.refreshToken.updateMany({ where: { tokenHash: sha256(token) }, data: { revokedAt: new Date() } });
-  res.clearCookie(REFRESH_COOKIE, { path: '/auth' });
+  res.clearCookie(REFRESH_COOKIE, { path: COOKIE_PATH });
   res.json({ ok: true });
 });
 

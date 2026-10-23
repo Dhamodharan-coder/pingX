@@ -11,6 +11,8 @@ export const env = parseEnv(
     PORT: z.coerce.number().int().positive().default(4100),
     APP_URL: z.string().url(),
     API_URL: z.string().url().default('http://localhost:4100'),
+    /** Path prefix the browser uses to reach the API (e.g. /api behind the Vite proxy or Caddy). */
+    PUBLIC_API_PREFIX: z.string().default(''),
     COOKIE_SECURE: z
       .string()
       .default('false')
