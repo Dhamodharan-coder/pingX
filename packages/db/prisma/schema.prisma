@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum ProviderType {
+  smtp
+  gmail_oauth
+  resend
+  ses
+}
+
+enum MessageStatus {
+  scheduled
+  queued
+  sending
+  sent
+  failed
+}
+
+enum MessageEventType {
+  queued
+  attempt
+  sent
+  failed
+  fallback
+  retry
+  webhook
+}
+
+enum TokenType {
+  verify_email
+  reset_password
+}
+
+enum TemplateFormat {
+  mjml
+  html
+}
+
+enum SubscriptionStatus {
+  created
+  active
+  pending
+  halted
+  cancelled
+  completed
+}
+
+model Plan {
+  id             String         @id @default(cuid())
+  code           String         @unique
+  name           String
+  dailyLimit     Int            @map("daily_limit")
+  monthlyLimit   Int            @map("monthly_limit")
+  burstPerSecond Int            @map("burst_per_second")
+  aiDailyLimit   Int            @default(0) @map("ai_daily_limit")
+  priceInr       Int            @default(0) @map("price_inr")
+  razorpayPlanId String?        @map("razorpay_plan_id")
+  active         Boolean        @default(true)
+  sortOrder      Int            @default(0) @map("sort_order")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  users          User[]
+  subscriptions  Subscription[]
+
+  @@map("plans")
+}
+
+model User {
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  name               String?
+  passwordHash       String?        @map("password_hash")
+  googleId           String?        @unique @map("google_id")
+  role               Role           @default(user)
+  emailVerifiedAt    DateTime?      @map("email_verified_at")
+  planId             String         @map("plan_id")
+  dailyLimitOverride Int?           @map("daily_limit_override")
+  disabledAt         DateTime?      @map("disabled_at")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+  plan               Plan           @relation(fields: [planId], references: [id])
+  refreshTokens      RefreshToken[]
+  tokens             UserToken[]
+  projects           Project[]
+  providers          Provider[]
+  templates          Template[]
+  layouts            Layout[]
+  messages           Message[]
+  usage              UsageDaily[]
+  subscriptions      Subscription[]
+  auditLogs          AuditLog[]
+
+  @@index([planId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model UserToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  type      TokenType
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("user_tokens")
+}
+
+model Project {
+  id                String     @id @default(cuid())
+  userId            String     @map("user_id")
+  name              String
+  defaultProviderId String?    @map("default_provider_id")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultProvider   Provider?  @relation(fields: [defaultProviderId], references: [id], onDelete: SetNull)
+  apiKeys           ApiKey[]
+  messages          Message[]
+  webhooks          Webhook[]
+  templates         Template[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Provider {
+  id                      String         @id @default(cuid())
+  userId                  String         @map("user_id")
+  name                    String
+  type                    ProviderType
+  priority                Int
+  fromEmail               String         @map("from_email")
+  fromName                String?        @map("from_name")
+  configEnc               String         @map("config_enc")
+  keyVersion              Int            @map("key_version")
+  dailyCap                Int?           @map("daily_cap")
+  ratePerSecond           Int?           @map("rate_per_second")
+  healthy                 Boolean        @default(true)
+  consecutiveAuthFailures Int            @default(0) @map("consecutive_auth_failures")
+  lastError               String?        @map("last_error")
+  lastUsedAt              DateTime?      @map("last_used_at")
+  createdAt               DateTime       @default(now()) @map("created_at")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
+  user                    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultFor              Project[]
+  messages                Message[]
+  events                  MessageEvent[]
+
+  @@index([userId, priority])
+  @@map("providers")
+}
+
+model ProviderPreset {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  type      ProviderType
+  host      String?
+  port      Int?
+  secure    Boolean?
+  dailyCap  Int?         @map("daily_cap")
+  helpUrl   String?      @map("help_url")
+  notes     String?
+  active    Boolean      @default(true)
+  sortOrder Int          @default(0) @map("sort_order")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  @@map("provider_presets")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  projectId  String    @map("project_id")
+  name       String
+  prefix     String
+  keyHash    String    @unique @map("key_hash")
+  lastUsedAt DateTime? @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages   Message[]
+
+  @@index([projectId])
+  @@map("api_keys")
+}
+
+model Layout {
+  id        String         @id @default(cuid())
+  userId    String?        @map("user_id")
+  name      String
+  format    TemplateFormat @default(mjml)
+  body      String
+  isSystem  Boolean        @default(false) @map("is_system")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  user      User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templates Template[]
+
+  @@index([userId])
+  @@map("layouts")
+}
+
+model Template {
+  id             String            @id @default(cuid())
+  userId         String?           @map("user_id")
+  projectId      String?           @map("project_id")
+  layoutId       String?           @map("layout_id")
+  name           String
+  slug           String
+  description    String?
+  isSystem       Boolean           @default(false) @map("is_system")
+  isGallery      Boolean           @default(false) @map("is_gallery")
+  currentVersion Int               @default(1) @map("current_version")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  user           User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project        Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  layout         Layout?           @relation(fields: [layoutId], references: [id], onDelete: SetNull)
+  versions       TemplateVersion[]
+  messages       Message[]
+
+  @@unique([userId, slug])
+  @@index([isGallery])
+  @@map("templates")
+}
+
+model TemplateVersion {
+  id         String         @id @default(cuid())
+  templateId String         @map("template_id")
+  version    Int
+  subject    String
+  format     TemplateFormat
+  body       String
+  text       String?
+  sampleData Json?          @map("sample_data")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  template   Template       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+  @@map("template_versions")
+}
+
+model Message {
+  id                String         @id @default(cuid())
+  userId            String         @map("user_id")
+  projectId         String         @map("project_id")
+  apiKeyId          String?        @map("api_key_id")
+  templateId        String?        @map("template_id")
+  templateVersion   Int?           @map("template_version")
+  providerId        String?        @map("provider_id")
+  to                String[]
+  cc                String[]       @default([])
+  bcc               String[]       @default([])
+  replyTo           String?        @map("reply_to")
+  fromOverride      String?        @map("from_override")
+  subject           String
+  html              String
+  text              String?
+  tags              String[]       @default([])
+  status            MessageStatus
+  attempts          Int            @default(0)
+  error             String?
+  providerMessageId String?        @map("provider_message_id")
+  idempotencyKey    String?        @map("idempotency_key")
+  batchId           String?        @map("batch_id")
+  scheduledAt       DateTime?      @map("scheduled_at")
+  sentAt            DateTime?      @map("sent_at")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  apiKey            ApiKey?        @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  template          Template?      @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  provider          Provider?      @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  events            MessageEvent[]
+
+  @@unique([projectId, idempotencyKey])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([status])
+  @@index([batchId])
+  @@map("messages")
+}
+
+model MessageEvent {
+  id         String           @id @default(cuid())
+  messageId  String           @map("message_id")
+  providerId String?          @map("provider_id")
+  type       MessageEventType
+  detail     String?
+  createdAt  DateTime         @default(now()) @map("created_at")
+  message    Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  provider   Provider?        @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([messageId, createdAt])
+  @@map("message_events")
+}
+
+model UsageDaily {
+  id     String   @id @default(cuid())
+  userId String   @map("user_id")
+  date   DateTime @db.Date
+  sent   Int      @default(0)
+  failed Int      @default(0)
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date])
+  @@map("usage_daily")
+}
+
+model Webhook {
+  id         String   @id @default(cuid())
+  projectId  String   @map("project_id")
+  url        String
+  secretEnc  String   @map("secret_enc")
+  keyVersion Int      @map("key_version")
+  events     String[]
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("webhooks")
+}
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  userId                 String             @map("user_id")
+  planId                 String             @map("plan_id")
+  razorpaySubscriptionId String             @unique @map("razorpay_subscription_id")
+  status                 SubscriptionStatus
+  currentPeriodEnd       DateTime?          @map("current_period_end")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                   Plan               @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@map("subscriptions")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String   @map("admin_id")
+  action     String
+  targetType String   @map("target_type")
+  targetId   String?  @map("target_id")
+  meta       Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  admin      User     @relation(fields: [adminId], references: [id])
+
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
