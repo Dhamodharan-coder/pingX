@@ -1,0 +1,16 @@
+{
+  "name": "@pingx/spikes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smtp-egress": "tsx --env-file-if-exists=../.env smtp-egress.ts",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "nodemailer": "^10.2.0"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.2"
+  }
+}

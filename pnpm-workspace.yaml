@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+  - spikes
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@tailwindcss/oxide': true
+  esbuild: true
+  msgpackr-extract: false
+  prisma: true

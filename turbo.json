@@ -1,0 +1,11 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["NODE_ENV"],
+  "tasks": {
+    "generate": { "cache": false },
+    "build": { "dependsOn": ["^build", "generate"], "outputs": ["dist/**"] },
+    "typecheck": { "dependsOn": ["^generate", "generate"] },
+    "test": { "dependsOn": ["^generate", "generate"], "outputs": [] },
+    "dev": { "dependsOn": ["^generate"], "cache": false, "persistent": true }
+  }
+}
