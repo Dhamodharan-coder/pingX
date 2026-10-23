@@ -205,6 +205,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^1.1.0
         version: 1.1.0(zod@3.25.76)
+      '@aws-sdk/client-sesv2':
+        specifier: ^3.1155.0
+        version: 3.1155.0
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2
@@ -220,6 +223,9 @@ importers:
       '@pingx/templates':
         specifier: workspace:*
         version: link:../../packages/templates
+      '@prisma/client':
+        specifier: ^6.19.3
+        version: 6.19.3(prisma@6.19.3(typescript@6.0.3))(typescript@6.0.3)
       bullmq:
         specifier: ^6.4.0
         version: 6.4.0(ioredis@6.0.0)
@@ -232,12 +238,21 @@ importers:
       express:
         specifier: ^5.3.0
         version: 5.3.0
+      handlebars:
+        specifier: ^4.7.10
+        version: 4.7.10
       helmet:
         specifier: ^8.3.0
         version: 8.3.0
+      ioredis:
+        specifier: ^6.0.0
+        version: 6.0.0
       jose:
         specifier: ^6.2.13
         version: 6.2.13
+      mjml:
+        specifier: ^5.4.1
+        version: 5.4.1(svgo@4.1.0)(typescript@6.0.3)
       nodemailer:
         specifier: ^10.2.0
         version: 10.2.0
@@ -260,9 +275,6 @@ importers:
       '@types/supertest':
         specifier: ^7.2.1
         version: 7.2.1
-      ioredis:
-        specifier: ^6.0.0
-        version: 6.0.0
       supertest:
         specifier: ^7.3.1
         version: 7.3.1
@@ -333,15 +345,24 @@ importers:
 
   apps/worker:
     dependencies:
+      '@aws-sdk/client-sesv2':
+        specifier: ^3.1155.0
+        version: 3.1155.0
       '@pingx/channels':
         specifier: workspace:*
         version: link:../../packages/channels
       '@pingx/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@prisma/client':
+        specifier: ^6.19.3
+        version: 6.19.3(prisma@6.19.3(typescript@6.0.3))(typescript@6.0.3)
       bullmq:
         specifier: ^6.4.0
         version: 6.4.0(ioredis@6.0.0)
+      ioredis:
+        specifier: ^6.0.0
+        version: 6.0.0
       nodemailer:
         specifier: ^10.2.0
         version: 10.2.0
@@ -355,9 +376,6 @@ importers:
       '@types/nodemailer':
         specifier: ^8.0.2
         version: 8.0.2
-      ioredis:
-        specifier: ^6.0.0
-        version: 6.0.0
 
   packages/channels:
     dependencies:

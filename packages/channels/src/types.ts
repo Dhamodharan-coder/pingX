@@ -24,4 +24,6 @@ export interface AdapterContext {
   googleClientId?: string;
   googleClientSecret?: string;
   timeoutMs?: number;
+  /** Dev only: allow SMTP hosts on private networks (e.g. Mailpit) and plain SMTP to them. */
+  allowPrivateHosts?: boolean;
 }

@@ -15,7 +15,8 @@
     "format": "prettier --write .",
     "db:migrate": "pnpm --filter @pingx/db migrate",
     "db:seed": "pnpm --filter @pingx/db seed",
-    "db:generate": "pnpm --filter @pingx/db generate"
+    "db:generate": "pnpm --filter @pingx/db generate",
+    "check:bundle": "node scripts/check-bundle-deps.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -73,12 +73,13 @@ Admin panel (JWT + admin) ────────┘         │              �
 
 ```
 pnpm i
-docker compose up -d postgres redis
+docker compose up -d postgres redis mailpit   # mailpit inbox: http://localhost:8025
 pnpm db:migrate     # prisma migrate dev
 pnpm db:seed
-pnpm dev            # turbo: api + worker + dashboard
+pnpm dev            # turbo: api :4100 + worker + dashboard :5173 (proxies /api)
 pnpm test
 pnpm lint && pnpm typecheck
+pnpm build && pnpm check:bundle   # apps must declare every third-party import of bundled @pingx/* code
 ```
 
 ## Workflow for every task

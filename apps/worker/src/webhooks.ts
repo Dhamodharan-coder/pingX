@@ -1,10 +1,11 @@
 import { prisma } from '@pingx/db';
-import { decrypt, hmacSha256, type Keyring, type WebhookJob } from '@pingx/shared';
+import { assertPublicHost, decrypt, hmacSha256, type Keyring, type WebhookJob } from '@pingx/shared';
 
 /** Signature header: `t=<unix>,v1=<hex hmac-sha256(secret, "<t>.<body>")>`. */
-export async function deliverWebhook(keyring: Keyring, job: WebhookJob) {
+export async function deliverWebhook(keyring: Keyring, job: WebhookJob, opts: { allowPrivateHosts: boolean }) {
   const hook = await prisma.webhook.findUnique({ where: { id: job.webhookId } });
   if (!hook || !hook.active) return;
+  if (!opts.allowPrivateHosts) await assertPublicHost(new URL(hook.url).hostname);
   const body = JSON.stringify({ event: job.event, createdAt: new Date().toISOString(), data: job.payload });
   const t = Math.floor(Date.now() / 1000);
   const secret = decrypt(keyring, hook.secretEnc, hook.keyVersion);

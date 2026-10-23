@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "smtp-egress": "tsx --env-file-if-exists=../.env smtp-egress.ts",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "load-test": "tsx --env-file-if-exists=../.env load-test.ts"
   },
   "dependencies": {
     "nodemailer": "^10.2.0"

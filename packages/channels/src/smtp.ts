@@ -1,20 +1,23 @@
-import type { SmtpConfig } from '@pingx/shared';
+import { assertPublicHost, type SmtpConfig } from '@pingx/shared';
 import nodemailer from 'nodemailer';
-import { classifySmtpError } from './errors';
+import { classifySmtpError, ProviderError } from './errors';
 import type { AdapterContext, OutboundMessage, SendResult } from './types';
-
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', 'mailpit']);
 
 export function createSmtpAdapter(ctx: AdapterContext) {
   const timeout = ctx.timeoutMs ?? 20_000;
   return {
     async send(config: SmtpConfig, message: OutboundMessage): Promise<SendResult> {
+      if (!ctx.allowPrivateHosts) {
+        await assertPublicHost(config.host).catch((err: Error) => {
+          throw new ProviderError('provider', err.message, { code: 'EHOST' });
+        });
+      }
       const transport = nodemailer.createTransport({
         host: config.host,
         port: config.port,
         secure: config.secure,
-        // Local dev sinks (Mailpit) speak plain SMTP; everything else must upgrade to TLS.
-        requireTLS: !config.secure && !LOCAL_HOSTS.has(config.host),
+        // Dev sinks like Mailpit speak plain SMTP; real providers must upgrade to TLS.
+        requireTLS: !config.secure && !ctx.allowPrivateHosts,
         auth: { user: config.user, pass: config.pass },
         connectionTimeout: timeout,
         greetingTimeout: timeout,

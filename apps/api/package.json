@@ -16,22 +16,26 @@
     "@types/express": "^5.0.6",
     "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^7.2.1",
-    "ioredis": "^6.0.0",
     "supertest": "^7.3.1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
+    "@aws-sdk/client-sesv2": "^3.1155.0",
     "@node-rs/argon2": "^2.2.2",
     "@pingx/channels": "workspace:*",
     "@pingx/db": "workspace:*",
     "@pingx/shared": "workspace:*",
     "@pingx/templates": "workspace:*",
+    "@prisma/client": "^6.19.3",
     "bullmq": "^6.4.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "express": "^5.3.0",
+    "handlebars": "^4.7.10",
     "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
     "jose": "^6.2.13",
+    "mjml": "^5.4.1",
     "nodemailer": "^10.2.0",
     "zod": "^3.25.76"
   }

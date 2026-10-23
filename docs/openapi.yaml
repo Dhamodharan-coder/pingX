@@ -1,0 +1,151 @@
+openapi: 3.1.0
+info:
+  title: PingX Send API
+  version: 1.0.0
+  description: |
+    Public API for sending email through your connected providers.
+    Authenticate with a project API key: `Authorization: Bearer pgx_live_...`.
+servers:
+  - url: https://{host}/api
+    variables:
+      host: { default: pingx.example.com }
+security:
+  - apiKey: []
+paths:
+  /v1/send:
+    post:
+      summary: Queue one email
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string, maxLength: 255 }
+          description: Repeat requests with the same key return the original message (200) instead of sending again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendInput' }
+      responses:
+        '202': { description: Queued, headers: { $ref: '#/components/headers/RateLimit' }, content: { application/json: { schema: { $ref: '#/components/schemas/SendResult' } } } }
+        '200': { description: Idempotent replay, content: { application/json: { schema: { $ref: '#/components/schemas/SendResult' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { description: Account email not verified (`email_not_verified`), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Template not found (`template_not_found`), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: No provider connected (`no_provider`) or template render error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/send/batch:
+    post:
+      summary: Queue up to 100 emails
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages]
+              properties:
+                messages: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/SendInput' } }
+      responses:
+        '202':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batchId: { type: string, format: uuid }
+                  messages: { type: array, items: { $ref: '#/components/schemas/SendResult' } }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/messages/{id}:
+    get:
+      summary: Message status and delivery events
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    apiKey: { type: http, scheme: bearer, description: 'Project API key, pgx_live_...' }
+  headers:
+    RateLimit:
+      description: X-RateLimit-Limit / X-RateLimit-Remaining / X-RateLimit-Reset (unix seconds, next 00:00 UTC)
+      schema: { type: integer }
+  responses:
+    Error:
+      description: Error
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: '`daily_limit`, `monthly_limit` or `burst_limit` exceeded. See Retry-After.'
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  schemas:
+    Email: { type: string, format: email, maxLength: 320 }
+    SendInput:
+      type: object
+      required: [to]
+      description: Provide either `template` (+ `data`) or `subject` with `html` and/or `text`.
+      properties:
+        to:
+          oneOf:
+            - { $ref: '#/components/schemas/Email' }
+            - { type: array, minItems: 1, maxItems: 50, items: { $ref: '#/components/schemas/Email' } }
+        cc: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/Email' } }
+        bcc: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/Email' } }
+        replyTo: { $ref: '#/components/schemas/Email' }
+        fromName: { type: string, maxLength: 100, description: Overrides the provider's display name }
+        subject: { type: string, maxLength: 998, description: Overrides the template subject when both are given }
+        html: { type: string, maxLength: 512000 }
+        text: { type: string, maxLength: 256000 }
+        template: { type: string, description: Template slug or id }
+        data: { type: object, additionalProperties: true, description: Template variables (HTML-escaped) }
+        scheduledAt: { type: string, format: date-time, description: Up to 30 days ahead }
+        tags: { type: array, maxItems: 10, items: { type: string, maxLength: 50 } }
+    SendResult:
+      type: object
+      properties:
+        id: { type: string }
+        status: { $ref: '#/components/schemas/Status' }
+        scheduledAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    Status: { type: string, enum: [scheduled, queued, sending, sent, failed] }
+    Message:
+      allOf:
+        - $ref: '#/components/schemas/SendResult'
+        - type: object
+          properties:
+            to: { type: array, items: { type: string } }
+            subject: { type: string }
+            attempts: { type: integer }
+            error: { type: [string, 'null'] }
+            sentAt: { type: [string, 'null'], format: date-time }
+            tags: { type: array, items: { type: string } }
+            events:
+              type: array
+              items:
+                type: object
+                properties:
+                  type: { type: string, enum: [queued, attempt, sent, failed, fallback, retry, webhook] }
+                  detail: { type: [string, 'null'] }
+                  createdAt: { type: string, format: date-time }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+    WebhookEvent:
+      description: |
+        POSTed to project webhooks. Header `PingX-Signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "<t>.<raw body>")>`.
+      type: object
+      properties:
+        event: { type: string, enum: [message.sent, message.failed] }
+        createdAt: { type: string, format: date-time }
+        data:
+          type: object
+          properties:
+            message: { type: object }

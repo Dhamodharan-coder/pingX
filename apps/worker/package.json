@@ -11,15 +11,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1155.0",
     "@pingx/channels": "workspace:*",
     "@pingx/shared": "workspace:*",
+    "@prisma/client": "^6.19.3",
     "bullmq": "^6.4.0",
+    "ioredis": "^6.0.0",
     "nodemailer": "^10.2.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@pingx/db": "workspace:*",
-    "@types/nodemailer": "^8.0.2",
-    "ioredis": "^6.0.0"
+    "@types/nodemailer": "^8.0.2"
   }
 }

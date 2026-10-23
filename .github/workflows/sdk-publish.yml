@@ -1,0 +1,30 @@
+name: Publish SDK
+
+on:
+  push:
+    tags: ['sdk-v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --filter pingx...
+      - name: Tag matches package version
+        run: |
+          v=$(node -p "require('./packages/sdk/package.json').version")
+          [ "sdk-v$v" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} != sdk-v$v"; exit 1; }
+      - run: pnpm --filter pingx test
+      - run: pnpm --filter pingx build
+      - run: npm publish --provenance --access public
+        working-directory: packages/sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

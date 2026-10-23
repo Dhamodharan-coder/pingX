@@ -1,7 +1,8 @@
 import { prisma } from '@pingx/db';
-import { AppError, encrypt, generateApiKey, randomToken, WEBHOOK_EVENTS } from '@pingx/shared';
+import { AppError, assertPublicHost, encrypt, generateApiKey, randomToken, WEBHOOK_EVENTS } from '@pingx/shared';
 import { Router } from 'express';
 import { z } from 'zod';
+import { env } from '../env';
 import { keyring, webhookQueue } from '../lib/infra';
 import { notFound, parse } from '../lib/validate';
 import { requireUser } from '../middleware/auth';
@@ -95,11 +96,19 @@ projectsRouter.post('/:id/webhooks', async (req, res) => {
   const p = await ownedProject(req.userId!, req.params.id!);
   const body = parse(
     z.object({
-      url: z.string().url().refine((u) => u.startsWith('https://') || u.startsWith('http://localhost'), 'Webhook URL must use https'),
+      url: z
+        .string()
+        .url()
+        .refine((u) => u.startsWith('https://') || (env.NODE_ENV !== 'production' && u.startsWith('http://')), 'Webhook URL must use https'),
       events: z.array(z.enum(WEBHOOK_EVENTS)).min(1).default([...WEBHOOK_EVENTS]),
     }),
     req.body,
   );
+  if (env.NODE_ENV === 'production') {
+    await assertPublicHost(new URL(body.url).hostname).catch(() => {
+      throw new AppError('validation_error', 400, 'Webhook URL must point to a public host');
+    });
+  }
   const secret = `whsec_${randomToken(24)}`;
   const { data, keyVersion } = encrypt(keyring, secret);
   const row = await prisma.webhook.create({ data: { projectId: p.id, url: body.url, events: body.events, secretEnc: data, keyVersion } });

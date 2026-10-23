@@ -16,7 +16,7 @@ const workers = [
     (job) => processSend(deps, job.data.messageId, { number: job.attemptsMade + 1, max: job.opts.attempts ?? 1 }),
     { connection, concurrency: env.WORKER_CONCURRENCY },
   ),
-  new Worker<WebhookJob>(QUEUES.webhook, (job) => deliverWebhook(keyring, job.data), { connection, concurrency: 5 }),
+  new Worker<WebhookJob>(QUEUES.webhook, (job) => deliverWebhook(keyring, job.data, { allowPrivateHosts: env.NODE_ENV !== 'production' }), { connection, concurrency: 5 }),
   new Worker<SystemEmailJob>(QUEUES.system, (job) => sendSystemEmail(job.data), { connection, concurrency: 2 }),
   new Worker(
     'maintenance',
