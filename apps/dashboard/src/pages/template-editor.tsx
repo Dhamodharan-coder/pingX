@@ -204,7 +204,9 @@ export function TemplateEditorPage() {
         <div className="ml-auto flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => setAiOpen(true)}><SparklesIcon />AI assist</Button>
           <Button size="sm" variant="outline" onClick={() => setHistoryOpen(true)}><HistoryIcon />History</Button>
-          <Button size="sm" variant="outline" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true); }}><SendIcon />Test send</Button>
+          <span title={dirty ? 'Save your changes first — Test send uses the saved version' : undefined}>
+            <Button size="sm" variant="outline" disabled={dirty} onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true); }}><SendIcon />Test send</Button>
+          </span>
           <Button size="icon-sm" variant="ghost" onClick={() => setConfirmDelete(true)} aria-label="Delete template"><Trash2Icon /></Button>
           <Button size="sm" disabled={!dirty || save.isPending || !sampleOk || legacy} onClick={() => save.mutate()}>
             {save.isPending && <Loader2Icon className="animate-spin" />}Save
@@ -372,7 +374,6 @@ export function TemplateEditorPage() {
               </NativeSelect>
             </Field>
             {!projects.data?.length && <p className="text-sm text-destructive">Create a project first.</p>}
-            {dirty && <p className="text-sm text-amber-700 dark:text-amber-400">You have unsaved changes; the test uses the saved version.</p>}
           </div>
           <DialogFooter>
             <Button disabled={!projects.data?.length || testSend.isPending} onClick={() => testSend.mutate()}>Send test</Button>
