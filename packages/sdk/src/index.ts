@@ -67,6 +67,9 @@ export class PingX {
     if (!options.apiKey) throw new Error('PingX: apiKey is required');
     const base = options.baseUrl ?? globalThis.process?.env?.PINGX_BASE_URL;
     if (!base) throw new Error('PingX: baseUrl is required (or set PINGX_BASE_URL)');
+    if (!/^https?:\/\//i.test(base)) {
+      throw new Error(`PingX: baseUrl must be an absolute http(s) URL such as https://your-pingx-host/api, got "${base}"`);
+    }
     this.baseUrl = base.replace(/\/+$/, '');
     this.fetch = options.fetch ?? globalThis.fetch;
   }
@@ -121,6 +124,10 @@ export class PingX {
         continue;
       }
       const error = (json as { error?: { code?: string; message?: string } } | undefined)?.error;
+      if (!error && res.status === 404) {
+        // Every PingX error has an { error: { code, message } } body; a bare 404 means the URL isn't a PingX API.
+        throw new PingXError(404, 'not_pingx_api', `No PingX API at ${this.baseUrl}${path} (HTTP 404). Check baseUrl — it should point at the PingX API, e.g. http://localhost:4100 or https://your-pingx-host/api`);
+      }
       throw new PingXError(res.status, error?.code ?? 'http_error', error?.message ?? `HTTP ${res.status}`, retryAfter);
     }
   }

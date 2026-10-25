@@ -51,8 +51,30 @@ describe('PingX client', () => {
     expect(m.calls).toHaveLength(1);
   });
 
+  it('explains a 404 from a server that is not PingX', async () => {
+    const m = mockFetch([{ status: 404 }]);
+    const px = new PingX({ apiKey: 'k', baseUrl: 'http://localhost:5173/api', fetch: m.fetch });
+    await expect(px.send({ to: 'a@b.dev', subject: 's', text: 't' })).rejects.toMatchObject({
+      status: 404,
+      code: 'not_pingx_api',
+      message: expect.stringMatching(/No PingX API at http:\/\/localhost:5173\/api\/v1\/send/),
+    });
+  });
+
+  it('keeps PingX 404 errors as they are', async () => {
+    const m = mockFetch([{ status: 404, body: { error: { code: 'template_not_found', message: 'Template "x" not found' } } }]);
+    const px = new PingX({ apiKey: 'k', baseUrl: 'http://localhost:4100', fetch: m.fetch });
+    await expect(px.send({ to: 'a@b.dev', template: 'x' })).rejects.toMatchObject({ code: 'template_not_found' });
+  });
+
   it('requires a base URL', () => {
     expect(() => new PingX({ apiKey: 'k' })).toThrow(/baseUrl/);
+  });
+
+  it('rejects a base URL that is not an absolute http(s) URL', () => {
+    expect(() => new PingX({ apiKey: 'k', baseUrl: 'undefined' })).toThrow(/absolute http\(s\) URL.*"undefined"/);
+    expect(() => new PingX({ apiKey: 'k', baseUrl: 'localhost:4100' })).toThrow(/absolute/);
+    expect(() => new PingX({ apiKey: 'k', baseUrl: 'http://localhost:4100' })).not.toThrow();
   });
 });
 
