@@ -402,7 +402,7 @@ export function AdminTemplatesPage() {
   const [editing, setEditing] = useState<{ id?: string; name: string; slug: string; description: string; subject: string; body: string; sampleData: string } | null>(null);
   const save = useAdminMutation(
     (t: NonNullable<typeof editing>) => {
-      const version = { subject: t.subject, format: 'mjml', body: t.body, sampleData: JSON.parse(t.sampleData || '{}') };
+      const version = { subject: t.subject, format: 'html', body: t.body, sampleData: JSON.parse(t.sampleData || '{}') };
       return t.id
         ? api.put(`/admin/templates/${t.id}`, { name: t.name, description: t.description, version })
         : api.post('/admin/templates', { name: t.name, slug: t.slug, description: t.description, isGallery: true, version });
@@ -412,7 +412,7 @@ export function AdminTemplatesPage() {
   const remove = useAdminMutation((id: string) => api.del(`/admin/templates/${id}`), ['admin-templates', 'gallery'], 'Deleted');
   return (
     <>
-      <PageHeader title="Gallery templates" description="System templates users can start from (MJML fragments inside the default layout)." actions={<Button onClick={() => setEditing({ name: '', slug: '', description: '', subject: '', body: '<mj-text>Hello {{name}}</mj-text>', sampleData: '{"name":"Asha","brand":"Acme"}' })}><PlusIcon />New template</Button>} />
+      <PageHeader title="Gallery templates" description="System templates users can start from (HTML + Handlebars fragments inside the default layout)." actions={<Button onClick={() => setEditing({ name: '', slug: '', description: '', subject: '', body: '<p>Hello {{name}}</p>', sampleData: '{"name":"Asha","brand":"Acme"}' })}><PlusIcon />New template</Button>} />
       {isLoading ? <Loading /> : (
         <Card>
           <Table>
@@ -444,7 +444,7 @@ export function AdminTemplatesPage() {
               </div>
               <Field label="Description"><Input value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></Field>
               <Field label="Subject"><Input required value={editing.subject} onChange={(e) => setEditing({ ...editing, subject: e.target.value })} /></Field>
-              <Field label="MJML body"><Textarea rows={8} className="font-mono text-xs" value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} /></Field>
+              <Field label="HTML body"><Textarea rows={8} className="font-mono text-xs" value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} /></Field>
               <Field label="Sample data (JSON)"><Textarea rows={3} className="font-mono text-xs" value={editing.sampleData} onChange={(e) => setEditing({ ...editing, sampleData: e.target.value })} /></Field>
               <DialogFooter><Button type="submit" disabled={save.isPending}>Save</Button></DialogFooter>
             </form>

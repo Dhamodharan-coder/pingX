@@ -9,7 +9,7 @@ import { invalidateLimits, invalidateSettings } from '../lib/limits';
 import { notFound, parse } from '../lib/validate';
 import { requireAdmin, requireUser } from '../middleware/auth';
 import { listQuery, messageListSelect, messageWhere } from './messages';
-import { slug, validateVersion, versionBody } from './templates';
+import { assertSlugFree, slug, validateVersion, versionBody } from './templates';
 
 /** Admin never selects provider config: credentials stay encrypted and unreadable here. */
 const providerSafeSelect = {
@@ -232,6 +232,7 @@ adminRouter.post('/templates', async (req, res) => {
     req.body,
   );
   validateVersion(body.version);
+  await assertSlugFree(null, body.slug);
   const t = await prisma.template.create({
     data: {
       name: body.name,

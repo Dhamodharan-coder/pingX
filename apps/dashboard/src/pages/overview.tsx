@@ -14,6 +14,7 @@ export function OverviewPage() {
   const { user } = useAuth();
   const providers = useQuery({ queryKey: ['providers'], queryFn: () => api.get<Provider[]>('/providers') });
   const projects = useQuery({ queryKey: ['projects'], queryFn: () => api.get<Project[]>('/projects') });
+  const publicSettings = useQuery({ queryKey: ['settings-public'], queryFn: () => api.get<{ emailEnabled: boolean }>('/settings/public'), staleTime: 60_000 });
   const recent = useQuery({ queryKey: ['messages', 'recent'], queryFn: () => api.get<Page<MessageRow>>('/messages?limit=8') });
 
   if (!user) return null;
@@ -21,7 +22,8 @@ export function OverviewPage() {
   if (providers.error) return <ErrorNote error={providers.error} />;
 
   const steps = [
-    { done: user.emailVerified, label: 'Verify your email', to: '/settings' },
+    // Only a step when the server sends verification emails (EMAIL_ENABLED=true).
+    ...(publicSettings.data?.emailEnabled ? [{ done: user.emailVerified, label: 'Verify your email', to: '/settings' }] : []),
     { done: (providers.data?.length ?? 0) > 0, label: 'Connect an email provider', to: '/providers' },
     { done: (projects.data?.length ?? 0) > 0, label: 'Create a project', to: '/projects' },
     { done: (projects.data ?? []).some((p) => (p._count?.apiKeys ?? 0) > 0), label: 'Create an API key', to: '/projects' },

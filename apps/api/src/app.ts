@@ -6,6 +6,7 @@ import express, { type ErrorRequestHandler } from 'express';
 import helmet from 'helmet';
 import { env } from './env';
 import { getSetting } from './lib/limits';
+import { accountRouter } from './routes/account';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
 import { billingRouter, razorpayWebhookRouter } from './routes/billing';
@@ -58,9 +59,11 @@ export function createApp() {
     res.json({
       signupEnabled: await getSetting('signup_enabled', true),
       banner: await getSetting<string | null>('banner', null),
+      emailEnabled: env.EMAIL_ENABLED,
     });
   });
   app.use('/auth', authRouter);
+  app.use('/account', accountRouter);
   app.use('/projects', projectsRouter);
   app.use('/providers', providersRouter);
   app.use('/templates', templatesRouter);

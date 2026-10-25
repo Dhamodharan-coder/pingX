@@ -4,3 +4,4 @@ export * from './crypto';
 export * from './queue';
 export * from './providers';
 export * from './network';
+export * from './email';

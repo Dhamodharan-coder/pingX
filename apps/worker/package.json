@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "dev": "tsx watch --include ../../.env --env-file-if-exists=../../.env src/index.ts",
     "build": "tsup",
     "start": "node dist/index.js",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "email:test": "tsx --env-file-if-exists=../../.env src/email-test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1155.0",

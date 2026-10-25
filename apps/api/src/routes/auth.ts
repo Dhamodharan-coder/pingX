@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { env } from '../env';
 import { signAccessToken } from '../lib/jwt';
 import { getSetting, getUserLimits } from '../lib/limits';
+import { isEmailVerified } from '../lib/email';
 import { systemEmails } from '../lib/systemEmail';
 import { parse } from '../lib/validate';
 import { requireUser } from '../middleware/auth';
@@ -74,9 +75,15 @@ authRouter.post('/signup', ipRateLimit('signup', 5, 600), async (req, res) => {
     throw new AppError('email_taken', 409, 'An account with this email already exists');
   }
   const user = await prisma.user.create({
-    data: { email: body.email, name: body.name, passwordHash: await hash(body.password), planId: await freePlanId() },
+    data: {
+      email: body.email,
+      name: body.name,
+      passwordHash: await hash(body.password),
+      planId: await freePlanId(),
+      emailVerifiedAt: env.EMAIL_ENABLED ? null : new Date(),
+    },
   });
-  await systemEmails.verify(user.email, await createUserToken(user.id, 'verify_email', 24 * 60 * 60 * 1000));
+  if (env.EMAIL_ENABLED) await systemEmails.verify(user.email, await createUserToken(user.id, 'verify_email', 24 * 60 * 60 * 1000));
   res.status(201).json(await issueSession(res, user));
 });
 
@@ -89,7 +96,7 @@ authRouter.post('/verify-email', async (req, res) => {
 
 authRouter.post('/resend-verification', requireUser, ipRateLimit('verify', 3, 600), async (req, res) => {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId } });
-  if (!user.emailVerifiedAt) await systemEmails.verify(user.email, await createUserToken(user.id, 'verify_email', 24 * 60 * 60 * 1000));
+  if (!isEmailVerified(user)) await systemEmails.verify(user.email, await createUserToken(user.id, 'verify_email', 24 * 60 * 60 * 1000));
   res.json({ ok: true });
 });
 
@@ -156,6 +163,7 @@ authRouter.post('/logout', async (req, res) => {
 
 authRouter.post('/forgot-password', ipRateLimit('forgot', 5, 600), async (req, res) => {
   const body = parse(z.object({ email }), req.body);
+  if (!env.EMAIL_ENABLED) throw new AppError('email_disabled', 503, 'Password reset by email is turned off on this server. Ask an admin to reset your password.');
   const user = await prisma.user.findUnique({ where: { email: body.email } });
   if (user && !user.disabledAt) await systemEmails.reset(user.email, await createUserToken(user.id, 'reset_password', 60 * 60 * 1000));
   res.json({ ok: true });
@@ -179,7 +187,7 @@ authRouter.get('/me', requireUser, async (req, res) => {
     email: user.email,
     name: user.name,
     role: user.role,
-    emailVerified: Boolean(user.emailVerifiedAt),
+    emailVerified: isEmailVerified(user),
     hasPassword: Boolean(user.passwordHash),
     plan: { code: limits.plan.code, name: limits.plan.name },
     limits: { daily: limits.daily, monthly: limits.monthly, burst: limits.burst, aiDaily: limits.aiDaily },

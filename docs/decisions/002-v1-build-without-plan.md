@@ -14,7 +14,10 @@
   - Rejected and failed-to-render requests are refunded.
 - **Monthly limit** is a plan column. The seed sets daily × 30.
 - **Burst default:** 5/s on Free, 10/s on Starter, 50/s on Pro.
-- **AI assistant:** `claude-opus-5-5` at low effort with structured output (subject, MJML fragment, sample data) and server-side refusal fallback. Each plan has an `ai_daily_limit` (5 / 25 / 100).
+- **AI assistant (revised 2026-10-25):** bring-your-own provider per user, not a server key.
+  - Users pick Anthropic, OpenAI, Gemini, or an OpenAI-compatible base URL (Groq, OpenRouter, Ollama…), plus a model and API key in Settings. The `ai_settings` table stores the key encrypted.
+  - Output is an email-safe HTML document.
+  - Users pay their provider, so the plan's `ai_daily_limit` is no longer enforced. The column stays for now.
 - **Captcha:** Cloudflare Turnstile, optional through env.
 - **System emails** (verify, reset, 80%/100% limit warnings) go through the worker via `SYSTEM_SMTP_URL`. They are not sent through users' providers.
 - **Gmail:** both the SMTP app-password preset and the Gmail API OAuth provider are supported.

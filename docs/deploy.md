@@ -35,9 +35,9 @@ The `migrate` service applies migrations and seeds plans, presets and gallery te
 |---|---|
 | **Google sign-in + Gmail provider** | 1. Create an OAuth client (Web).<br>2. Authorized JS origin: `https://DOMAIN`.<br>3. Redirect URI: `https://DOMAIN/api/providers/gmail/callback`.<br>4. Add the `gmail.send` scope to the consent screen (needs Google verification before going public).<br>5. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `VITE_GOOGLE_CLIENT_ID`. |
 | **Razorpay** | 1. Create monthly plans in Razorpay.<br>2. Paste each plan id into Admin → Plans.<br>3. Webhook URL: `https://DOMAIN/api/webhooks/razorpay`, events `subscription.*`, secret in `RAZORPAY_WEBHOOK_SECRET`. |
-| **AI assistant** | Set `ANTHROPIC_API_KEY`. |
+| **AI assistant** | Nothing to set on the server. Each user adds their own provider (Anthropic, OpenAI, Gemini or an OpenAI-compatible URL) and API key in **Settings → AI assistant**. |
 | **Captcha** | Create a Cloudflare Turnstile site and set `TURNSTILE_SECRET` and `VITE_TURNSTILE_SITE_KEY`. |
-| **System email** | Set `SYSTEM_SMTP_URL`, e.g. `smtps://user:pass@smtp.zoho.in:465` or a Resend SMTP relay. |
+| **System email** | Set `EMAIL_ENABLED=true`, `EMAIL_FROM` and either `SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURE`/`SMTP_USER`/`SMTP_PASS`, a single `SMTP_URL`, or `RESEND_API_KEY`. Check it with `pnpm email:test you@example.com`. With `EMAIL_ENABLED` off there is no email verification and no password-reset email. |
 
 `VITE_*` values are baked into the dashboard at build time, so rebuild `web` after changing them.
 
@@ -68,7 +68,7 @@ The `migrate` service applies migrations and seeds plans, presets and gallery te
 - [ ] `.env.production` filled; `COOKIE_SECURE=true`; strong unique secrets; encryption key backed up offline
 - [ ] DNS points at the VM and HTTPS works (Caddy obtained a certificate)
 - [ ] SMTP egress verified on the VM (465/587), or HTTPS-only providers chosen
-- [ ] `SYSTEM_SMTP_URL` sends verify and reset emails (sign up with a real address)
+- [ ] `EMAIL_ENABLED=true` and `pnpm email:test` delivers; signup sends a real verification email
 - [ ] Admin login works and the admin password has been changed after first login
 - [ ] Each paid plan has a Razorpay plan id; a test-mode subscription moves a user to the paid plan via webhook
 - [ ] Google OAuth consent screen is configured; Gmail provider connect works

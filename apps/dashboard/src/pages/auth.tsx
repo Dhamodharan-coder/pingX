@@ -109,6 +109,10 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  useEffect(() => {
+    api.get<{ emailEnabled: boolean }>('/settings/public').then((s) => setEmailEnabled(s.emailEnabled)).catch(() => {});
+  }, []);
   const { pending, error, submit } = useSubmit(async () => {
     const { accessToken } = await api.post<{ accessToken: string }>('/auth/login', { email, password });
     await signIn(accessToken);
@@ -128,9 +132,11 @@ export function LoginPage() {
         <Button type="submit" disabled={pending}>
           {pending && <Loader2Icon className="animate-spin" />}Sign in
         </Button>
-        <Link to="/forgot-password" className="text-center text-sm text-muted-foreground hover:underline">
-          Forgot password?
-        </Link>
+        {emailEnabled && (
+          <Link to="/forgot-password" className="text-center text-sm text-muted-foreground hover:underline">
+            Forgot password?
+          </Link>
+        )}
       </form>
       <GoogleButton />
     </AuthCard>
@@ -156,7 +162,7 @@ export function SignupPage() {
   const { pending, error, submit } = useSubmit(async () => {
     const { accessToken } = await api.post<{ accessToken: string }>('/auth/signup', { ...form, captchaToken });
     await signIn(accessToken);
-    toast.success('Account created. Check your email to verify it.');
+    toast.success('Account created');
     navigate('/');
   });
   if (user) return <Navigate to="/" replace />;

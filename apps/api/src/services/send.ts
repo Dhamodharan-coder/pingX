@@ -2,6 +2,7 @@ import { Prisma, prisma, type Message } from '@pingx/db';
 import { AppError, SEND_JOB_OPTIONS } from '@pingx/shared';
 import type { Response } from 'express';
 import { z } from 'zod';
+import { isEmailVerified } from '../lib/email';
 import { sendQueue } from '../lib/infra';
 import { consumeQuota } from './quota';
 import { findTemplateForSend, renderVersion } from './templates';
@@ -72,7 +73,7 @@ export async function createMessages(
   opts: { idempotencyKey?: string; batchId?: string; res?: Response } = {},
 ) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: ctx.userId }, select: { emailVerifiedAt: true } });
-  if (!user.emailVerifiedAt) throw new AppError('email_not_verified', 403, 'Verify your account email before sending');
+  if (!isEmailVerified(user)) throw new AppError('email_not_verified', 403, 'Verify your account email before sending');
 
   if (opts.idempotencyKey) {
     const existing = await prisma.message.findUnique({

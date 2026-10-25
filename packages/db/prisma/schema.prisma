@@ -47,6 +47,13 @@ enum TemplateFormat {
   html
 }
 
+enum AiProvider {
+  anthropic
+  openai
+  gemini
+  openai_compatible
+}
+
 enum SubscriptionStatus {
   created
   active
@@ -100,6 +107,7 @@ model User {
   usage              UsageDaily[]
   subscriptions      Subscription[]
   auditLogs          AuditLog[]
+  aiSetting          AiSetting?
 
   @@index([planId])
   @@map("users")
@@ -387,4 +395,20 @@ model Setting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("settings")
+}
+
+/// A user's own AI provider for the template assistant. The API key is encrypted and never returned.
+model AiSetting {
+  id         String     @id @default(cuid())
+  userId     String     @unique @map("user_id")
+  provider   AiProvider
+  model      String
+  baseUrl    String?    @map("base_url")
+  apiKeyEnc  String     @map("api_key_enc")
+  keyVersion Int        @map("key_version")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_settings")
 }

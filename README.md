@@ -14,7 +14,7 @@ apps/worker     BullMQ: send pipeline + fallback chain, retries/DLQ, webhooks, s
 apps/dashboard  React + Vite + shadcn/ui: user dashboard and /admin
 packages/db         Prisma schema, migrations, seed
 packages/channels   SMTP / Gmail API / Resend / SES adapters + error classifier
-packages/templates  Handlebars + MJML rendering
+packages/templates  HTML + Handlebars rendering
 packages/shared     env, crypto (AES-256-GCM), queue contracts, schemas
 packages/sdk        the `pingx` npm package
 ```

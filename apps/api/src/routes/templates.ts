@@ -1,6 +1,6 @@
-import { prisma, type Prisma } from '@pingx/db';
+import { Prisma, prisma } from '@pingx/db';
 import { AppError } from '@pingx/shared';
-import { validateTemplateSource } from '@pingx/templates';
+import { mjmlToHtml, validateTemplateSource } from '@pingx/templates';
 import { Router } from 'express';
 import { z } from 'zod';
 import { notFound, parse } from '../lib/validate';
@@ -9,17 +9,39 @@ import { draftTemplate } from '../services/ai';
 import { createMessages } from '../services/send';
 import { assertLayoutAccess, renderVersion } from '../services/templates';
 
+/** New content is always HTML + Handlebars. MJML only survives in older saved versions (see /convert-html). */
 export const versionBody = z.object({
   subject: z.string().min(1).max(998),
-  format: z.enum(['mjml', 'html']),
+  format: z.literal('html').default('html'),
   body: z.string().min(1).max(512_000),
   text: z.string().max(256_000).nullish(),
   sampleData: z.record(z.unknown()).nullish(),
 });
 
-export const slug = z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9-]{0,62}$/, 'lowercase letters, digits and dashes');
+export const slug = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9-]{0,62}$/, 'lowercase letters, digits and dashes');
 
-export function validateVersion(v: z.infer<typeof versionBody>) {
+/** Slugs are unique per owner (each user; gallery templates share the null owner). */
+export async function assertSlugFree(userId: string | null, slug: string, exceptId?: string) {
+  const clash = await prisma.template.findFirst({
+    where: { userId, slug, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
+    select: { id: true },
+  });
+  if (clash) throw new AppError('slug_taken', 409, `A template with slug "${slug}" already exists`);
+}
+
+/** Turns the unique-index violation from a concurrent create/rename into the same 409. */
+export function slugConflict(err: unknown, slug: string | undefined): never {
+  if (slug && err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+    throw new AppError('slug_taken', 409, `A template with slug "${slug}" already exists`);
+  }
+  throw err;
+}
+
+export function validateVersion(v: { subject: string; body: string; text?: string | null }) {
   validateTemplateSource(v.subject);
   validateTemplateSource(v.body);
   if (v.text) validateTemplateSource(v.text);
@@ -48,7 +70,10 @@ templatesRouter.get('/', async (req, res) => {
   const projectId = typeof req.query.projectId === 'string' ? req.query.projectId : undefined;
   res.json(
     await prisma.template.findMany({
-      where: { userId: req.userId, ...(projectId ? { OR: [{ projectId }, { projectId: null }] } : {}) },
+      where: {
+        userId: req.userId,
+        ...(projectId ? { OR: [{ projectId }, { projectId: null }] } : {}),
+      },
       orderBy: { updatedAt: 'desc' },
       include: withCurrent,
     }),
@@ -56,7 +81,13 @@ templatesRouter.get('/', async (req, res) => {
 });
 
 templatesRouter.get('/gallery', async (_req, res) => {
-  res.json(await prisma.template.findMany({ where: { isGallery: true }, orderBy: { name: 'asc' }, include: withCurrent }));
+  res.json(
+    await prisma.template.findMany({
+      where: { isGallery: true },
+      orderBy: { name: 'asc' },
+      include: withCurrent,
+    }),
+  );
 });
 
 templatesRouter.get('/:id', async (req, res) => {
@@ -84,31 +115,50 @@ templatesRouter.post('/', async (req, res) => {
   let version = body.version;
   let layoutId = body.layoutId;
   if (body.fromGalleryId) {
-    const g = await prisma.template.findFirst({ where: { id: body.fromGalleryId, isGallery: true }, include: withCurrent });
+    const g = await prisma.template.findFirst({
+      where: { id: body.fromGalleryId, isGallery: true },
+      include: withCurrent,
+    });
     const v = g?.versions[0];
     if (!g || !v) throw notFound('Gallery template');
-    version = { subject: v.subject, format: v.format, body: v.body, text: v.text, sampleData: v.sampleData as Record<string, unknown> | null };
+    if (v.format !== 'html')
+      throw new AppError(
+        'gallery_outdated',
+        409,
+        'This gallery template has not been converted to HTML yet',
+      );
+    version = {
+      subject: v.subject,
+      format: 'html',
+      body: v.body,
+      text: v.text,
+      sampleData: v.sampleData as Record<string, unknown> | null,
+    };
     layoutId ??= g.layoutId;
   }
   if (!version) throw new AppError('validation_error', 400, 'version or fromGalleryId is required');
   validateVersion(version);
   await assertLayoutAccess(req.userId!, layoutId);
-  if (body.projectId && !(await prisma.project.findFirst({ where: { id: body.projectId, userId: req.userId } }))) throw notFound('Project');
-  if (await prisma.template.findFirst({ where: { userId: req.userId, slug: body.slug } })) {
-    throw new AppError('slug_taken', 409, `A template with slug "${body.slug}" already exists`);
-  }
-  const t = await prisma.template.create({
-    data: {
-      userId: req.userId,
-      name: body.name,
-      slug: body.slug,
-      description: body.description,
-      projectId: body.projectId,
-      layoutId,
-      versions: { create: { version: 1, ...versionData(version) } },
-    },
-    include: withCurrent,
-  });
+  if (
+    body.projectId &&
+    !(await prisma.project.findFirst({ where: { id: body.projectId, userId: req.userId } }))
+  )
+    throw notFound('Project');
+  await assertSlugFree(req.userId!, body.slug);
+  const t = await prisma.template
+    .create({
+      data: {
+        userId: req.userId,
+        name: body.name,
+        slug: body.slug,
+        description: body.description,
+        projectId: body.projectId,
+        layoutId,
+        versions: { create: { version: 1, ...versionData(version) } },
+      },
+      include: withCurrent,
+    })
+    .catch((err) => slugConflict(err, body.slug));
   res.status(201).json(t);
 });
 
@@ -118,6 +168,7 @@ templatesRouter.put('/:id', async (req, res) => {
   const body = parse(
     z.object({
       name: z.string().trim().min(1).max(100).optional(),
+      slug: slug.optional(),
       description: z.string().max(500).nullish(),
       layoutId: z.string().nullish(),
       projectId: z.string().nullish(),
@@ -127,32 +178,52 @@ templatesRouter.put('/:id', async (req, res) => {
   );
   if (body.version) validateVersion(body.version);
   await assertLayoutAccess(req.userId!, body.layoutId);
+  if (body.slug && body.slug !== t.slug) await assertSlugFree(req.userId!, body.slug, t.id);
   const next = t.currentVersion + 1;
-  const updated = await prisma.template.update({
-    where: { id: t.id },
-    data: {
-      name: body.name,
-      description: body.description,
-      layoutId: body.layoutId,
-      projectId: body.projectId,
-      ...(body.version ? { currentVersion: next, versions: { create: { version: next, ...versionData(body.version) } } } : {}),
-    },
-    include: withCurrent,
-  });
+  const updated = await prisma.template
+    .update({
+      where: { id: t.id },
+      data: {
+        name: body.name,
+        slug: body.slug,
+        description: body.description,
+        layoutId: body.layoutId,
+        projectId: body.projectId,
+        ...(body.version
+          ? {
+              currentVersion: next,
+              versions: { create: { version: next, ...versionData(body.version) } },
+            }
+          : {}),
+      },
+      include: withCurrent,
+    })
+    .catch((err) => slugConflict(err, body.slug));
   res.json(updated);
 });
 
 templatesRouter.post('/:id/rollback', async (req, res) => {
   const t = await ownedTemplate(req.userId!, req.params.id!);
   const { version } = parse(z.object({ version: z.number().int().positive() }), req.body);
-  const old = await prisma.templateVersion.findUnique({ where: { templateId_version: { templateId: t.id, version } } });
+  const old = await prisma.templateVersion.findUnique({
+    where: { templateId_version: { templateId: t.id, version } },
+  });
   if (!old) throw notFound('Version');
   const next = t.currentVersion + 1;
   const updated = await prisma.template.update({
     where: { id: t.id },
     data: {
       currentVersion: next,
-      versions: { create: { version: next, subject: old.subject, format: old.format, body: old.body, text: old.text, sampleData: old.sampleData ?? undefined } },
+      versions: {
+        create: {
+          version: next,
+          subject: old.subject,
+          format: old.format,
+          body: old.body,
+          text: old.text,
+          sampleData: old.sampleData ?? undefined,
+        },
+      },
     },
     include: withCurrent,
   });
@@ -166,22 +237,89 @@ templatesRouter.delete('/:id', async (req, res) => {
 });
 
 templatesRouter.post('/preview', async (req, res) => {
-  const body = parse(versionBody.extend({ layoutId: z.string().nullish(), data: z.record(z.unknown()).default({}) }), req.body);
+  // Preview still accepts legacy MJML so old templates can be viewed before converting.
+  const body = parse(
+    versionBody.extend({
+      format: z.enum(['html', 'mjml']).default('html'),
+      layoutId: z.string().nullish(),
+      data: z.record(z.unknown()).default({}),
+    }),
+    req.body,
+  );
   validateVersion(body);
   await assertLayoutAccess(req.userId!, body.layoutId);
-  const layout = body.layoutId ? await prisma.layout.findUnique({ where: { id: body.layoutId } }) : null;
+  const layout = body.layoutId
+    ? await prisma.layout.findUnique({ where: { id: body.layoutId } })
+    : null;
   res.json(await renderVersion({ ...body, text: body.text ?? null }, layout, body.data));
+});
+
+/** Compiles a legacy MJML template (and its MJML layout) into one HTML version, keeping every {{variable}}. */
+templatesRouter.post('/:id/convert-html', async (req, res) => {
+  const t = await prisma.template.findFirst({
+    where: { id: req.params.id, userId: req.userId },
+    include: { layout: true },
+  });
+  if (!t) throw notFound('Template');
+  const current = await prisma.templateVersion.findUniqueOrThrow({
+    where: { templateId_version: { templateId: t.id, version: t.currentVersion } },
+  });
+  if (current.format === 'html')
+    throw new AppError('already_html', 400, 'This template is already HTML');
+  const source =
+    t.layout?.format === 'mjml'
+      ? t.layout.body.replace(/\{\{\{\s*content\s*\}\}\}/g, current.body)
+      : current.body;
+  const html = await mjmlToHtml(source);
+  validateTemplateSource(html);
+  const next = t.currentVersion + 1;
+  const updated = await prisma.template.update({
+    where: { id: t.id },
+    data: {
+      layoutId: t.layout?.format === 'mjml' ? null : t.layoutId,
+      currentVersion: next,
+      versions: {
+        create: {
+          version: next,
+          subject: current.subject,
+          format: 'html',
+          body: html,
+          text: current.text,
+          sampleData: current.sampleData ?? undefined,
+        },
+      },
+    },
+    include: { versions: { orderBy: { version: 'desc' } } },
+  });
+  res.json(updated);
 });
 
 templatesRouter.post('/:id/test-send', async (req, res) => {
   const t = await ownedTemplate(req.userId!, req.params.id!);
-  const body = parse(z.object({ projectId: z.string(), to: z.string().email().optional(), data: z.record(z.unknown()).optional() }), req.body);
-  if (!(await prisma.project.findFirst({ where: { id: body.projectId, userId: req.userId } }))) throw notFound('Project');
+  const body = parse(
+    z.object({
+      projectId: z.string(),
+      to: z.string().email().optional(),
+      data: z.record(z.unknown()).optional(),
+    }),
+    req.body,
+  );
+  if (!(await prisma.project.findFirst({ where: { id: body.projectId, userId: req.userId } })))
+    throw notFound('Project');
   const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId } });
-  const current = await prisma.templateVersion.findUniqueOrThrow({ where: { templateId_version: { templateId: t.id, version: t.currentVersion } } });
+  const current = await prisma.templateVersion.findUniqueOrThrow({
+    where: { templateId_version: { templateId: t.id, version: t.currentVersion } },
+  });
   const { messages } = await createMessages(
     { userId: req.userId!, projectId: body.projectId },
-    [{ to: [body.to ?? user.email], template: t.id, data: body.data ?? (current.sampleData as Record<string, unknown>) ?? {}, tags: ['test'] }],
+    [
+      {
+        to: [body.to ?? user.email],
+        template: t.id,
+        data: body.data ?? (current.sampleData as Record<string, unknown>) ?? {},
+        tags: ['test'],
+      },
+    ],
     { res },
   );
   res.status(202).json({ id: messages[0]!.id });
@@ -196,17 +334,26 @@ templatesRouter.post('/ai', async (req, res) => {
     req.body,
   );
   const draft = await draftTemplate(req.userId!, body.prompt, body.current);
-  validateVersion({ subject: draft.subject, body: draft.body, format: 'mjml' });
+  validateVersion(draft);
   res.json(draft);
 });
 
 export const layoutsRouter = Router();
 layoutsRouter.use(requireUser);
 
-const layoutBody = z.object({ name: z.string().trim().min(1).max(100), format: z.enum(['mjml', 'html']), body: z.string().min(1).max(256_000) });
+const layoutBody = z.object({
+  name: z.string().trim().min(1).max(100),
+  format: z.literal('html').default('html'),
+  body: z.string().min(1).max(256_000),
+});
 
 layoutsRouter.get('/', async (req, res) => {
-  res.json(await prisma.layout.findMany({ where: { OR: [{ userId: req.userId }, { isSystem: true }] }, orderBy: { createdAt: 'asc' } }));
+  res.json(
+    await prisma.layout.findMany({
+      where: { OR: [{ userId: req.userId }, { isSystem: true }] },
+      orderBy: { createdAt: 'asc' },
+    }),
+  );
 });
 
 layoutsRouter.post('/', async (req, res) => {
@@ -218,13 +365,18 @@ layoutsRouter.post('/', async (req, res) => {
 layoutsRouter.put('/:id', async (req, res) => {
   const body = parse(layoutBody.partial(), req.body);
   if (body.body) validateTemplateSource(body.body, { layout: true });
-  const { count } = await prisma.layout.updateMany({ where: { id: req.params.id, userId: req.userId }, data: body });
+  const { count } = await prisma.layout.updateMany({
+    where: { id: req.params.id, userId: req.userId },
+    data: body,
+  });
   if (!count) throw notFound('Layout');
   res.json(await prisma.layout.findUnique({ where: { id: req.params.id } }));
 });
 
 layoutsRouter.delete('/:id', async (req, res) => {
-  const { count } = await prisma.layout.deleteMany({ where: { id: req.params.id, userId: req.userId } });
+  const { count } = await prisma.layout.deleteMany({
+    where: { id: req.params.id, userId: req.userId },
+  });
   if (!count) throw notFound('Layout');
   res.status(204).end();
 });

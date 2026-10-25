@@ -224,16 +224,70 @@ describe('templates', () => {
     expect(rolled.body.versions[0].subject).toBe('v1');
   });
 
-  it('previews mjml with the system layout', async () => {
+  it('previews HTML inside the default system layout', async () => {
     const { auth } = await signup();
-    const layout = (await api().get('/layouts').set(auth)).body.find((l: { isSystem: boolean }) => l.isSystem);
+    const layout = (await api().get('/layouts').set(auth)).body.find((l: { isSystem: boolean; format: string }) => l.isSystem && l.format === 'html');
     const res = await api()
       .post('/templates/preview')
       .set(auth)
-      .send({ subject: 'Code {{code}}', format: 'mjml', body: '<mj-text>{{code}}</mj-text>', layoutId: layout.id, data: { code: '42', brand: 'Acme' } });
+      .send({ subject: 'Code {{code}}', body: '<p>{{code}}</p>', layoutId: layout.id, data: { code: '42', brand: 'Acme' } });
     expect(res.status).toBe(200);
     expect(res.body.subject).toBe('Code 42');
+    expect(res.body.html).toContain('<p>42</p>');
     expect(res.body.html).toContain('Acme');
+  });
+
+  it('only saves HTML', async () => {
+    const { auth } = await signup();
+    const res = await api().post('/templates').set(auth).send({ name: 'm', slug: 'm', version: { subject: 's', format: 'mjml', body: '<mj-text>x</mj-text>' } });
+    expect(res.status).toBe(400);
+  });
+
+  it('renames a template and its slug, and the new slug works for sending', async () => {
+    const { auth } = await signup();
+    const t = (await api().post('/templates').set(auth).send({ name: 'Old', slug: 'old-slug', version: { subject: 's', body: '<p>x</p>' } })).body;
+    const res = await api().put(`/templates/${t.id}`).set(auth).send({ name: 'New name', slug: 'new-name' });
+    expect(res.body).toMatchObject({ name: 'New name', slug: 'new-name', currentVersion: 1 });
+    expect((await api().put(`/templates/${t.id}`).set(auth).send({ name: 'Only name' })).body.slug).toBe('new-name');
+  });
+
+  it('never allows duplicate slugs for the same user, on create or rename', async () => {
+    const a = await signup();
+    const b = await signup();
+    const mk = (auth: Record<string, string>, slug: string) =>
+      api().post('/templates').set(auth).send({ name: slug, slug, version: { subject: 's', body: '<p>x</p>' } });
+    expect((await mk(a.auth, 'welcome-mail')).status).toBe(201);
+    const dup = await mk(a.auth, 'welcome-mail');
+    expect(dup.status).toBe(409);
+    expect(dup.body.error.code).toBe('slug_taken');
+    expect((await mk(b.auth, 'welcome-mail')).status).toBe(201);
+
+    const other = (await mk(a.auth, 'other')).body;
+    const clash = await api().put(`/templates/${other.id}`).set(a.auth).send({ slug: 'welcome-mail' });
+    expect(clash.status).toBe(409);
+    expect((await api().put(`/templates/${other.id}`).set(a.auth).send({ slug: 'other' })).status).toBe(200);
+    expect((await api().put(`/templates/${other.id}`).set(a.auth).send({ slug: 'Bad Slug!' })).status).toBe(400);
+  });
+
+  it('converts a legacy MJML template (with its MJML layout) to HTML and keeps variables', async () => {
+    const { auth, user } = await signup();
+    const layout = await prisma.layout.create({
+      data: { userId: user.id, name: 'Old', format: 'mjml', body: '<mjml><mj-body><mj-section><mj-column><mj-text>{{brand}}</mj-text>{{{content}}}</mj-column></mj-section></mj-body></mjml>' },
+    });
+    const legacy = await prisma.template.create({
+      data: { userId: user.id, name: 'Legacy', slug: 'legacy', layoutId: layout.id, versions: { create: { version: 1, subject: 'Hi {{name}}', format: 'mjml', body: '<mj-text>Hello {{name}}</mj-text><mj-button href="{{url}}">Go</mj-button>' } } },
+    });
+    const res = await api().post(`/templates/${legacy.id}/convert-html`).set(auth);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ currentVersion: 2, layoutId: null });
+    const v2 = res.body.versions[0];
+    expect(v2.format).toBe('html');
+    expect(v2.body).toContain('{{name}}');
+    expect(v2.body).toContain('{{brand}}');
+    expect(v2.body).toContain('href="{{url}}"');
+    const preview = await api().post('/templates/preview').set(auth).send({ subject: v2.subject, body: v2.body, data: { name: 'Asha', brand: 'Acme', url: 'https://x.dev' } });
+    expect(preview.body.html).toContain('Hello Asha');
+    expect((await api().post(`/templates/${legacy.id}/convert-html`).set(auth)).status).toBe(400);
   });
 
   it('creates from the gallery', async () => {
@@ -242,6 +296,44 @@ describe('templates', () => {
     expect(gallery.length).toBeGreaterThan(0);
     const res = await api().post('/templates').set(auth).send({ name: 'Mine', slug: 'mine', fromGalleryId: gallery[0].id });
     expect(res.status).toBe(201);
+  });
+});
+
+describe('per-user AI settings', () => {
+  it('asks the user to configure an AI provider before generating', async () => {
+    const { auth } = await signup();
+    const res = await api().post('/templates/ai').set(auth).send({ prompt: 'welcome email', format: 'html' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('ai_not_configured');
+  });
+
+  it('stores the key encrypted, never returns it, and keeps it when only the model changes', async () => {
+    const { auth, user } = await signup();
+    expect((await api().get('/account/ai').set(auth)).body).toBeNull();
+    const saved = await api().put('/account/ai').set(auth).send({ provider: 'gemini', model: 'gemini-x', apiKey: 'AIza-secret-key' });
+    expect(saved.status).toBe(200);
+    expect(saved.body).toMatchObject({ provider: 'gemini', model: 'gemini-x', apiKey: '••••' });
+    const row = await prisma.aiSetting.findUniqueOrThrow({ where: { userId: user.id } });
+    expect(row.apiKeyEnc).not.toContain('AIza-secret-key');
+    const changed = await api().put('/account/ai').set(auth).send({ provider: 'gemini', model: 'gemini-y', apiKey: '••••' });
+    expect(changed.body.model).toBe('gemini-y');
+    expect(JSON.stringify((await api().get('/account/ai').set(auth)).body)).not.toContain('AIza');
+    expect((await api().delete('/account/ai').set(auth)).status).toBe(204);
+    expect((await api().get('/account/ai').set(auth)).body).toBeNull();
+  });
+
+  it('validates required fields', async () => {
+    const { auth } = await signup();
+    expect((await api().put('/account/ai').set(auth).send({ provider: 'openai', apiKey: 'k' })).body.error.message).toMatch(/Model/);
+    expect((await api().put('/account/ai').set(auth).send({ provider: 'openai_compatible', model: 'm', apiKey: 'k' })).body.error.message).toMatch(/Base URL/);
+    expect((await api().put('/account/ai').set(auth).send({ provider: 'anthropic' })).body.error.message).toMatch(/API key/);
+  });
+
+  it('reports a failed connection test without saving', async () => {
+    const { auth, user } = await signup();
+    const res = await api().post('/account/ai/test').set(auth).send({ provider: 'openai_compatible', model: 'm', baseUrl: 'http://127.0.0.1:9/v1', apiKey: 'k' });
+    expect(res.body.ok).toBe(false);
+    expect(await prisma.aiSetting.findUnique({ where: { userId: user.id } })).toBeNull();
   });
 });
 

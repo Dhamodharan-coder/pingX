@@ -11,5 +11,6 @@ export function testEnv(dbName: string, redisDb: number): Record<string, string>
     JWT_REFRESH_SECRET: 'test-refresh-secret-test-refresh-secret-000',
     ENCRYPTION_KEY_V1: randomBytes(32).toString('base64'),
     ENCRYPTION_KEY_VERSION: '1',
+    EMAIL_ENABLED: 'true',
   };
 }

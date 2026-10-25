@@ -79,7 +79,7 @@ function NavList({ items, onNavigate }: { items: [string, string, LucideIcon][];
 function VerifyBanner() {
   const [sent, setSent] = useState(false);
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-amber-500/10 px-6 py-2 text-sm text-amber-800 dark:text-amber-300">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-amber-500/10 px-6 py-2 text-sm text-amber-800 dark:text-amber-300">
       <span>Verify your email to start sending. Check your inbox for the link.</span>
       <Button
         size="xs"
@@ -104,7 +104,10 @@ function VerifyBanner() {
 export function AppShell() {
   const { user, signOut } = useAuth();
   const [open, setOpen] = useState(false);
-  const isAdminArea = useLocation().pathname.startsWith('/admin');
+  const { pathname } = useLocation();
+  const isAdminArea = pathname.startsWith('/admin');
+  // Full-screen tools (the template editor) manage their own scrolling and use the whole content area.
+  const fullBleed = /^\/templates\/[^/]+$/.test(pathname);
   const { data: publicSettings } = useQuery({
     queryKey: ['settings-public'],
     queryFn: () => api.get<{ banner: string | null }>('/settings/public'),
@@ -140,8 +143,8 @@ export function AppShell() {
   );
 
   return (
-    <div className="min-h-screen bg-background md:grid md:grid-cols-[232px_1fr]">
-      <aside className="sticky top-0 hidden h-screen border-r bg-sidebar md:block">{sidebar}</aside>
+    <div className="h-dvh bg-background md:grid md:grid-cols-[232px_1fr]">
+      <aside className="hidden h-dvh overflow-y-auto border-r bg-sidebar md:block">{sidebar}</aside>
       {open && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/30" />
@@ -150,18 +153,26 @@ export function AppShell() {
           </aside>
         </div>
       )}
-      <div className="min-w-0">
-        <header className="flex items-center gap-2 border-b px-4 py-2 md:hidden">
+      <div className="flex h-dvh min-w-0 flex-col">
+        <header className="flex shrink-0 items-center gap-2 border-b px-4 py-2 md:hidden">
           <Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Open menu">
             <MenuIcon />
           </Button>
           <span className="font-semibold">PingX</span>
         </header>
-        {publicSettings?.banner && <div className="border-b bg-blue-500/10 px-6 py-2 text-sm">{publicSettings.banner}</div>}
+        {publicSettings?.banner && <div className="shrink-0 border-b bg-blue-500/10 px-6 py-2 text-sm">{publicSettings.banner}</div>}
         {user && !user.emailVerified && <VerifyBanner />}
-        <main className="mx-auto max-w-6xl p-4 md:p-8">
-          <Outlet />
-        </main>
+        {fullBleed ? (
+          <main className="min-h-0 flex-1">
+            <Outlet />
+          </main>
+        ) : (
+          <main className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-6xl p-4 md:p-8">
+              <Outlet />
+            </div>
+          </main>
+        )}
       </div>
     </div>
   );

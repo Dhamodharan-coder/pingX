@@ -6,16 +6,16 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { api, errorMessage } from '@/lib/api';
 import { fmtDate } from '@/lib/format';
-import type { Template } from '@/lib/types';
+import type { Layout, Template } from '@/lib/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-const BLANK_MJML = `<mj-text font-size="18px" font-weight="600">Hi {{name}},</mj-text>
-<mj-text>Write your message here.</mj-text>
-<mj-button href="{{url}}" background-color="#4f46e5">Call to action</mj-button>`;
+const BLANK_HTML = `<p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827">Hi {{name}},</p>
+<p style="margin:0 0 16px">Write your message here.</p>
+<p style="margin:24px 0"><a href="{{url}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;font-weight:600;text-decoration:none">Call to action</a></p>`;
 
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 63);
 
@@ -26,13 +26,15 @@ export function TemplatesPage() {
   const [form, setForm] = useState({ name: '', slug: '', from: '' });
   const templates = useQuery({ queryKey: ['templates'], queryFn: () => api.get<Template[]>('/templates') });
   const gallery = useQuery({ queryKey: ['gallery'], queryFn: () => api.get<Template[]>('/templates/gallery') });
+  const layouts = useQuery({ queryKey: ['layouts'], queryFn: () => api.get<Layout[]>('/layouts') });
+  const defaultLayoutId = layouts.data?.find((l) => l.isSystem && l.format === 'html' && l.name === 'Default')?.id;
   const create = useMutation({
     mutationFn: () =>
       api.post<Template>('/templates', {
         name: form.name,
         slug: form.slug,
-        ...(form.from ? { fromGalleryId: form.from } : { version: { subject: 'Hello {{name}}', format: 'mjml', body: BLANK_MJML, sampleData: { name: 'Asha', url: 'https://example.com', brand: 'Acme' } } }),
-        layoutId: undefined,
+        ...(form.from ? { fromGalleryId: form.from } : { version: { subject: 'Hello {{name}}', format: 'html', body: BLANK_HTML, sampleData: { name: 'Asha', url: 'https://example.com', brand: 'Acme' } } }),
+        layoutId: form.from ? undefined : defaultLayoutId,
       }),
     onSuccess: (t) => {
       qc.invalidateQueries({ queryKey: ['templates'] });
@@ -98,7 +100,7 @@ export function TemplatesPage() {
             <Field label="Slug" hint="Used in the API: template: &quot;slug&quot;"><Input required pattern="[a-z0-9][a-z0-9\-]*" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></Field>
             <Field label="Start from">
               <NativeSelect value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })}>
-                <option value="">Blank MJML template</option>
+                <option value="">Blank HTML template</option>
                 {gallery.data?.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </NativeSelect>
             </Field>

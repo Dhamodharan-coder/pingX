@@ -1,6 +1,7 @@
 import { prisma } from '@pingx/db';
 import { AppError, redisKeys } from '@pingx/shared';
 import type { Response } from 'express';
+import { env } from '../env';
 import { redis } from '../lib/infra';
 import { getUserLimits } from '../lib/limits';
 import { systemEmails } from '../lib/systemEmail';
@@ -65,6 +66,7 @@ export async function consumeQuota(userId: string, n: number, res?: Response): P
 }
 
 async function notifyLimit(userId: string, percent: number, limit: number) {
+  if (!env.EMAIL_ENABLED) return;
   const first = await redis.set(redisKeys.limitNotice(userId, percent), '1', 'EX', 60 * 60 * 48, 'NX');
   if (!first) return;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });

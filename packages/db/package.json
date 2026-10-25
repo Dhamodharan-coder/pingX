@@ -13,7 +13,8 @@
     "migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "seed": "tsx --env-file-if-exists=../../.env prisma/seed.ts",
     "typecheck": "tsc",
-    "deploy": "prisma migrate deploy"
+    "deploy": "prisma migrate deploy",
+    "studio": "dotenv -e ../../.env -- prisma studio"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

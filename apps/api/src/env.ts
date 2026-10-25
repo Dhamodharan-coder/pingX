@@ -1,4 +1,4 @@
-import { baseEnvSchema, parseEnv } from '@pingx/shared';
+import { baseEnvSchema, parseEnv, systemEmailEnvSchema } from '@pingx/shared';
 import { z } from 'zod';
 
 const optional = z
@@ -7,7 +7,7 @@ const optional = z
   .transform((v) => v || undefined);
 
 export const env = parseEnv(
-  baseEnvSchema.extend({
+  baseEnvSchema.merge(systemEmailEnvSchema).extend({
     PORT: z.coerce.number().int().positive().default(4100),
     APP_URL: z.string().url(),
     API_URL: z.string().url().default('http://localhost:4100'),
@@ -24,7 +24,6 @@ export const env = parseEnv(
     RAZORPAY_KEY_ID: optional,
     RAZORPAY_KEY_SECRET: optional,
     RAZORPAY_WEBHOOK_SECRET: optional,
-    ANTHROPIC_API_KEY: optional,
     TURNSTILE_SECRET: optional,
   }),
 );

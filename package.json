@@ -16,7 +16,9 @@
     "db:migrate": "pnpm --filter @pingx/db migrate",
     "db:seed": "pnpm --filter @pingx/db seed",
     "db:generate": "pnpm --filter @pingx/db generate",
-    "check:bundle": "node scripts/check-bundle-deps.mjs"
+    "check:bundle": "node scripts/check-bundle-deps.mjs",
+    "db:studio": "pnpm --filter @pingx/db studio",
+    "email:test": "pnpm --filter @pingx/worker email:test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -11,7 +11,7 @@ Progress tracker: @docs/PROGRESS.md — update it at the end of every task.
 - Worker: BullMQ (separate process, same monorepo)
 - DB: PostgreSQL 16 + Prisma
 - Queue/counters: Redis 7
-- Email: Nodemailer, Handlebars, MJML; Gmail API (gmail.send) for Gmail OAuth; Resend + SES HTTP APIs
+- Email: Nodemailer, Handlebars (templates are HTML + Handlebars only; MJML is legacy, render-only); Gmail API (gmail.send) for Gmail OAuth; Resend + SES HTTP APIs
 - Dashboard + admin: React, Vite, TanStack Query, Tailwind, shadcn/ui, Monaco
 - Auth: JWT access (15m) + refresh (7d, httpOnly cookie), argon2, Google sign-in
 - Payments: Razorpay Subscriptions
@@ -26,7 +26,7 @@ apps/worker     bullmq processors, cron jobs
 apps/dashboard  user UI + admin UI under /admin (role-guarded)
 packages/db         prisma schema, migrations, seed
 packages/channels   ChannelAdapter + email adapters (smtp, gmail-api, resend, ses)
-packages/templates  handlebars + mjml render
+packages/templates  handlebars render (+ legacy mjml → html)
 packages/shared     types, zod schemas, crypto, errors
 packages/sdk        the `pingx` npm package
 ```
