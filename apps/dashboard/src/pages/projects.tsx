@@ -1,10 +1,10 @@
 import { Code, ConfirmDialog, CopyButton, EmptyState, ErrorNote, Field, Loading, NativeSelect, PageHeader } from '@/components/common';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, errorMessage } from '@/lib/api';
 import { fmtDate } from '@/lib/format';
 import type { Project, Provider } from '@/lib/types';
@@ -83,6 +83,8 @@ export function ProjectDetailPage() {
   const keys = useQuery({ queryKey: ['api-keys', id], queryFn: () => api.get<ApiKeyRow[]>(`/projects/${id}/api-keys`) });
   const hooks = useQuery({ queryKey: ['webhooks', id], queryFn: () => api.get<WebhookRow[]>(`/projects/${id}/webhooks`) });
   const [newKey, setNewKey] = useState<string | null>(null);
+  const [keyTab, setKeyTab] = useState<'active' | 'revoked'>('active');
+  const [revoking, setRevoking] = useState<ApiKeyRow | null>(null);
   const [keyName, setKeyName] = useState('');
   const [hookUrl, setHookUrl] = useState('');
   const [hookSecret, setHookSecret] = useState<string | null>(null);
@@ -101,7 +103,7 @@ export function ProjectDetailPage() {
   });
   const revokeKey = useMutation({
     mutationFn: (keyId: string) => api.del(`/projects/${id}/api-keys/${keyId}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['api-keys', id] }); toast.success('Key revoked'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['api-keys', id] }); qc.invalidateQueries({ queryKey: ['projects'] }); setRevoking(null); toast.success('Key revoked'); },
   });
   const createHook = useMutation({
     mutationFn: () => api.post<{ secret: string }>(`/projects/${id}/webhooks`, { url: hookUrl }),
@@ -157,23 +159,52 @@ export function ProjectDetailPage() {
               <Input placeholder="Key name (e.g. production)" value={keyName} onChange={(e) => setKeyName(e.target.value)} className="max-w-xs" />
               <Button type="submit" disabled={createKey.isPending}><PlusIcon />Create key</Button>
             </form>
-            {keys.data?.length ? (
-              <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Key</TableHead><TableHead>Last used</TableHead><TableHead /></TableRow></TableHeader>
-                <TableBody>
-                  {keys.data.map((k) => (
-                    <TableRow key={k.id}>
-                      <TableCell>{k.name}</TableCell>
-                      <TableCell className="font-mono text-xs">{k.prefix}…</TableCell>
-                      <TableCell className="text-muted-foreground">{fmtDate(k.lastUsedAt)}</TableCell>
-                      <TableCell className="text-right">
-                        {k.revokedAt ? <Badge variant="outline">Revoked</Badge> : <Button size="xs" variant="ghost" onClick={() => revokeKey.mutate(k.id)}>Revoke</Button>}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : <p className="text-sm text-muted-foreground">No keys yet.</p>}
+            {(() => {
+              const all = keys.data ?? [];
+              const active = all.filter((k) => !k.revokedAt);
+              const revoked = all.filter((k) => k.revokedAt);
+              const shown = keyTab === 'active' ? active : revoked;
+              return (
+                <div className="grid gap-3">
+                  <Tabs value={keyTab} onValueChange={(v) => setKeyTab(v as 'active' | 'revoked')}>
+                    <TabsList>
+                      <TabsTrigger value="active">Active ({active.length})</TabsTrigger>
+                      <TabsTrigger value="revoked">Revoked ({revoked.length})</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                  {shown.length ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Key</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead>{keyTab === 'active' ? 'Last used' : 'Revoked'}</TableHead>
+                          {keyTab === 'active' && <TableHead />}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {shown.map((k) => (
+                          <TableRow key={k.id}>
+                            <TableCell>{k.name}</TableCell>
+                            <TableCell className="font-mono text-xs">{k.prefix}…</TableCell>
+                            <TableCell className="text-muted-foreground">{fmtDate(k.createdAt)}</TableCell>
+                            <TableCell className="text-muted-foreground">{fmtDate(keyTab === 'active' ? k.lastUsedAt : k.revokedAt)}</TableCell>
+                            {keyTab === 'active' && (
+                              <TableCell className="text-right">
+                                <Button size="xs" variant="ghost" onClick={() => setRevoking(k)}>Revoke</Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{keyTab === 'active' ? 'No active keys. Create one above.' : 'No revoked keys.'}</p>
+                  )}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
 
@@ -221,6 +252,15 @@ export function ProjectDetailPage() {
           <DialogFooter><CopyButton value={hookSecret ?? ''} /></DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={!!revoking}
+        onOpenChange={() => setRevoking(null)}
+        title={`Revoke key "${revoking?.name}"?`}
+        description={<>Requests using <code>{revoking?.prefix}…</code> will fail with 401 immediately. This can't be undone.</>}
+        confirmLabel="Revoke"
+        onConfirm={() => revoking && revokeKey.mutate(revoking.id)}
+        pending={revokeKey.isPending}
+      />
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
