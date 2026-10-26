@@ -2,9 +2,11 @@ import { randomBytes } from 'node:crypto';
 
 /** Test env defaults; each app passes its own database name and Redis DB index. */
 export function testEnv(dbName: string, redisDb: number): Record<string, string> {
+  const databaseUrl = process.env.TEST_DATABASE_URL ?? `postgresql://pingx:pingx@localhost:5432/${dbName}`;
   return {
     NODE_ENV: 'test',
-    DATABASE_URL: process.env.TEST_DATABASE_URL ?? `postgresql://pingx:pingx@localhost:5432/${dbName}`,
+    DATABASE_URL: databaseUrl,
+    DIRECT_URL: databaseUrl,
     REDIS_URL: process.env.TEST_REDIS_URL ?? `redis://localhost:6379/${redisDb}`,
     APP_URL: 'http://localhost:5173',
     JWT_ACCESS_SECRET: 'test-access-secret-test-access-secret-0000',

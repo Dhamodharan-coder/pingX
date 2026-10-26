@@ -1,0 +1,13 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# API only — the dashboard is on Vercel, which proxies /api/* here.
+{$API_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	reverse_proxy api:4100
+}

@@ -48,7 +48,7 @@ Current milestone: **Deploy**. M1–M6 are built and tested locally. Remaining i
 - [x] Integration + load tests
 
 ## Deploy
-- [ ] Oracle VM + Docker Compose + Caddy. docker-compose.prod.yml, Caddyfile and images are built and verified locally; docs/deploy.md
+- [ ] Vercel (dashboard) + Neon (DB) + Oracle VM (API, worker, Redis, Caddy). Config and guide ready (docs/deploy.md, decision 004); not yet deployed
 - [ ] CI/CD (PR checks, deploy on main, SDK publish on tag). Workflows are written but haven't run on GitHub yet
 - [ ] Backups + monitoring + go-live checklist. Backup service and checklist are in docs/deploy.md
 
@@ -61,3 +61,4 @@ Current milestone: **Deploy**. M1–M6 are built and tested locally. Remaining i
 2026-10-23 — M4/M5 dashboard and admin (shadcn/ui on Base UI, Monaco, SVG usage chart). Clicked through in headless Brave across 18 screens, desktop and mobile.
 2026-10-23 — M6: pingx SDK (retries with idempotency, batch, webhook verification), live-tested against the API. SSRF guard. Load test: 50 req/s → all 202, p95 8 ms; burst limit enforced at 80 req/s.
 2026-10-23 — Deploy artifacts: server/web Dockerfiles verified locally (migrate, api, worker run in container), prod compose with Caddy + nightly pg_dump, GitHub Actions for CI/deploy/SDK publish.
+2026-10-25 — Hosting plan: Vercel + Neon + Oracle VM (decision 004). Prisma directUrl for Neon, TRUST_PROXY, docker-compose.vm.yml + Caddyfile.api, vercel.json with /api rewrite, deploy guide rewritten.

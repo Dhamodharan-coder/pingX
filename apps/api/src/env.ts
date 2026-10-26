@@ -13,6 +13,8 @@ export const env = parseEnv(
     API_URL: z.string().url().default('http://localhost:4100'),
     /** Path prefix the browser uses to reach the API (e.g. /api behind the Vite proxy or Caddy). */
     PUBLIC_API_PREFIX: z.string().default(''),
+    /** Proxy hops in front of the API, so req.ip is the visitor: 1 = Caddy only, 2 = Vercel → Caddy. */
+    TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(1),
     COOKIE_SECURE: z
       .string()
       .default('false')

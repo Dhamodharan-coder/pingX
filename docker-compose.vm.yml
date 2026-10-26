@@ -1,0 +1,61 @@
+# Oracle VM stack for the Vercel + Neon setup (docs/deploy.md):
+#   docker compose -f docker-compose.vm.yml --env-file .env.production up -d --build
+# Postgres is Neon and the dashboard is Vercel, so neither runs here.
+x-server: &server
+  build: { context: ., dockerfile: deploy/server.Dockerfile }
+  image: pingx-server
+  env_file: .env.production
+  environment:
+    REDIS_URL: redis://redis:6379
+  restart: unless-stopped
+  depends_on:
+    redis: { condition: service_healthy }
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes: [redisdata:/data]
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 20
+
+  migrate:
+    <<: *server
+    restart: 'no'
+    command: ['sh', '-c', 'cd packages/db && npx prisma migrate deploy && npx tsx prisma/seed.ts']
+
+  api:
+    <<: *server
+    command: ['node', 'apps/api/dist/index.js']
+    depends_on:
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:4100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      retries: 5
+
+  worker:
+    <<: *server
+    command: ['node', 'apps/worker/dist/index.js']
+    depends_on:
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  caddy:
+    image: caddy:2.10-alpine
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    volumes: [./deploy/Caddyfile.api:/etc/caddy/Caddyfile:ro, caddy_data:/data, caddy_config:/config]
+    ports: ['80:80', '443:443']
+    depends_on: [api]
+    restart: unless-stopped
+
+volumes:
+  redisdata:
+  caddy_data:
+  caddy_config:

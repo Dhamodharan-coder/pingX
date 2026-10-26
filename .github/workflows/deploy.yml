@@ -29,14 +29,14 @@ jobs:
             set -e
             cd $APP_DIR
             git fetch --quiet origin main && git reset --hard origin/main
-            docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build --remove-orphans
+            docker compose -f docker-compose.vm.yml --env-file .env.production up -d --build --remove-orphans
             docker image prune -f
           "
           rm -f key
       - name: Health check
         run: |
           for i in $(seq 1 30); do
-            curl -fsS "https://${{ vars.DOMAIN }}/api/health" && exit 0
+            curl -fsS "https://${{ vars.API_DOMAIN }}/health" && exit 0
             sleep 5
           done
           echo "health check failed" && exit 1
