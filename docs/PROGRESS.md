@@ -11,7 +11,7 @@ Current milestone: **Deploy**. M1–M6 are built and tested locally. Remaining i
 - [x] Spike: Redis quota counter + burst limit, load test 50 req/s (docs/spikes/quota-load.md)
 - [ ] Spike: Razorpay test subscription → webhook. Built; needs Razorpay test keys
 - [ ] Spike: Gmail API send with OAuth (gmail.send). Built; needs a Google OAuth client
-- [ ] Publish the SDK on npm as `pingx-mail` (npm rejected `pingx` as too similar to ping/pino/pinia)
+- [x] SDK published on npm as `pingx-mail@0.1.0` (npm rejected `pingx` as too similar to ping/pino/pinia)
 - [x] Final Prisma schema + OpenAPI spec for /v1/* (docs/openapi.yaml; schema assumptions in decision 002)
 
 ## M1 Foundation
@@ -63,3 +63,4 @@ Current milestone: **Deploy**. M1–M6 are built and tested locally. Remaining i
 2026-10-23 — Deploy artifacts: server/web Dockerfiles verified locally (migrate, api, worker run in container), prod compose with Caddy + nightly pg_dump, GitHub Actions for CI/deploy/SDK publish.
 2026-10-25 — Hosting plan: Vercel + Neon + Oracle VM (decision 004). Prisma directUrl for Neon, TRUST_PROXY, docker-compose.vm.yml + Caddyfile.api, vercel.json with /api rewrite, deploy guide rewritten.
 2026-10-26 — npm rejected the name `pingx` (too similar to ping/pino/pinia); SDK renamed to `pingx-mail`. Package metadata, LICENSE, README server-only note; public types no longer need @types/node.
+2026-10-26 — Published pingx-mail@0.1.0 to npm (owner dhamodharanm); verified install + ESM/CJS imports from the registry.

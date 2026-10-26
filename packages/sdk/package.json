@@ -1,6 +1,6 @@
 {
   "name": "pingx-mail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Node.js SDK for PingX — send email through your own Gmail, Outlook, Zoho, SMTP, Resend or SES with automatic fallback",
   "keywords": [
     "email",
