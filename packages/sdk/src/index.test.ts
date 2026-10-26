@@ -87,6 +87,11 @@ describe('verifyWebhook', () => {
     const t = Math.floor(Date.now() / 1000);
     expect(verifyWebhook(body, sign(t), secret).event).toBe('message.sent');
   });
+  it('accepts a raw Buffer body (express.raw)', () => {
+    const t = Math.floor(Date.now() / 1000);
+    expect(verifyWebhook(Buffer.from(body), sign(t), secret).event).toBe('message.sent');
+  });
+
   it('rejects a tampered body', () => {
     const t = Math.floor(Date.now() / 1000);
     expect(() => verifyWebhook(body.replace('sent', 'failed'), sign(t), secret)).toThrow(/Invalid/);

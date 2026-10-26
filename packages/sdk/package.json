@@ -1,7 +1,30 @@
 {
-  "name": "pingx",
+  "name": "pingx-mail",
   "version": "0.1.0",
-  "description": "Official SDK for PingX",
+  "description": "Node.js SDK for PingX — send email through your own Gmail, Outlook, Zoho, SMTP, Resend or SES with automatic fallback",
+  "keywords": [
+    "email",
+    "smtp",
+    "transactional-email",
+    "gmail",
+    "nodemailer-alternative",
+    "resend",
+    "ses",
+    "sdk",
+    "pingx",
+    "pingx-mail"
+  ],
+  "author": "Dhamodharan M",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dhamodharan-coder/pingX.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/Dhamodharan-coder/pingX/tree/main/packages/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/Dhamodharan-coder/pingX/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -20,24 +43,20 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
-  "license": "MIT",
-  "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
-    "typecheck": "tsc",
-    "test": "vitest run"
-  },
-  "devDependencies": {
-    "tsup": "^9.0.0"
-  },
+  "sideEffects": false,
   "engines": {
     "node": ">=18"
   },
-  "keywords": [
-    "email",
-    "smtp",
-    "transactional",
-    "sdk"
-  ]
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "tsup": "^9.0.0"
+  }
 }

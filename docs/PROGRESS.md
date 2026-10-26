@@ -11,7 +11,7 @@ Current milestone: **Deploy**. M1–M6 are built and tested locally. Remaining i
 - [x] Spike: Redis quota counter + burst limit, load test 50 req/s (docs/spikes/quota-load.md)
 - [ ] Spike: Razorpay test subscription → webhook. Built; needs Razorpay test keys
 - [ ] Spike: Gmail API send with OAuth (gmail.send). Built; needs a Google OAuth client
-- [ ] Claim `pingx` on npm. Name is free and the SDK is ready; publish from your npm account
+- [ ] Publish the SDK on npm as `pingx-mail` (npm rejected `pingx` as too similar to ping/pino/pinia)
 - [x] Final Prisma schema + OpenAPI spec for /v1/* (docs/openapi.yaml; schema assumptions in decision 002)
 
 ## M1 Foundation
@@ -43,7 +43,7 @@ Current milestone: **Deploy**. M1–M6 are built and tested locally. Remaining i
 - [ ] Razorpay subscriptions + webhook; 80%/100% limit emails. Built; needs Razorpay test keys for the end-to-end run
 
 ## M6 SDK + hardening
-- [x] `pingx` SDK v0.1.0 + README + publish workflow
+- [x] `pingx-mail` SDK v0.1.0 + README + publish workflow
 - [x] Security pass, auth rate limits, signup captcha (SSRF guard added for SMTP hosts and webhook URLs)
 - [x] Integration + load tests
 
@@ -62,3 +62,4 @@ Current milestone: **Deploy**. M1–M6 are built and tested locally. Remaining i
 2026-10-23 — M6: pingx SDK (retries with idempotency, batch, webhook verification), live-tested against the API. SSRF guard. Load test: 50 req/s → all 202, p95 8 ms; burst limit enforced at 80 req/s.
 2026-10-23 — Deploy artifacts: server/web Dockerfiles verified locally (migrate, api, worker run in container), prod compose with Caddy + nightly pg_dump, GitHub Actions for CI/deploy/SDK publish.
 2026-10-25 — Hosting plan: Vercel + Neon + Oracle VM (decision 004). Prisma directUrl for Neon, TRUST_PROXY, docker-compose.vm.yml + Caddyfile.api, vercel.json with /api rewrite, deploy guide rewritten.
+2026-10-26 — npm rejected the name `pingx` (too similar to ping/pino/pinia); SDK renamed to `pingx-mail`. Package metadata, LICENSE, README server-only note; public types no longer need @types/node.

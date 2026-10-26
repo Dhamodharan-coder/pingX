@@ -1,21 +1,21 @@
-# pingx
+# pingx-mail
 
 Official Node.js SDK for PingX — send email through your own providers (Gmail, Outlook, Zoho, any SMTP, Resend, Amazon SES) with automatic fallback.
 
 ```bash
-npm install pingx
+npm install pingx-mail
 ```
 
-Requires Node.js 18+.
+Requires Node.js 18+. **Server-side only** (Node, Next.js API routes, Netlify/Vercel functions, Express): never ship your `pgx_live_…` API key in browser code — anyone could read it and send email as you.
 
 ## Send an email
 
 ```ts
-import { PingX } from 'pingx';
+import { PingX } from 'pingx-mail';
 
 const pingx = new PingX({
   apiKey: process.env.PINGX_API_KEY!, // pgx_live_...
-  baseUrl: 'https://your-pingx-host/api', // or set PINGX_BASE_URL
+  baseUrl: 'https://your-pingx-host/api', // your PingX URL + /api, or set PINGX_BASE_URL
 });
 
 // With a template you built in the dashboard
@@ -43,7 +43,7 @@ const message = await pingx.getMessage(messages[0].id); // status + delivery eve
 Every `send` carries an `Idempotency-Key` (random by default, or pass `{ idempotencyKey: 'order-123' }`). Network errors, `5xx` and short `429` bursts are retried with the same key, so a retry never sends twice. Failures throw `PingXError` with `status`, `code` and `retryAfter`:
 
 ```ts
-import { PingXError } from 'pingx';
+import { PingXError } from 'pingx-mail';
 
 try {
   await pingx.send({ to: 'a@x.dev', template: 'welcome' });
@@ -54,11 +54,28 @@ try {
 }
 ```
 
+Common error codes: `validation_error` (400), `unauthorized` (401, bad or revoked key), `email_not_verified` (403), `template_not_found` (404), `no_provider` (422), `daily_limit` / `monthly_limit` / `burst_limit` (429), and `not_pingx_api` when `baseUrl` doesn't point at a PingX API.
+
+## Contact form example (Netlify Function)
+
+```js
+// netlify/functions/contact.mjs
+import { PingX } from 'pingx-mail';
+
+const pingx = new PingX({ apiKey: process.env.PINGX_API_KEY, baseUrl: process.env.PINGX_BASE_URL });
+
+export default async (req) => {
+  const { name, email, message } = await req.json();
+  await pingx.send({ to: 'you@example.com', replyTo: email, template: 'contact-form', data: { name, email, message } });
+  return Response.json({ ok: true });
+};
+```
+
 ## Webhooks
 
 ```ts
 import express from 'express';
-import { verifyWebhook } from 'pingx';
+import { verifyWebhook } from 'pingx-mail';
 
 app.post('/pingx-webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const event = verifyWebhook(req.body, req.header('pingx-signature'), process.env.PINGX_WEBHOOK_SECRET!);

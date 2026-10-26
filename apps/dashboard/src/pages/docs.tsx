@@ -10,12 +10,12 @@ export function DocsPage() {
       <div className="grid max-w-3xl gap-6">
         <Card>
           <CardHeader><CardTitle>1. Install the SDK</CardTitle></CardHeader>
-          <CardContent><Code>npm install pingx</Code></CardContent>
+          <CardContent><Code>npm install pingx-mail</Code></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>2. Send with a template</CardTitle></CardHeader>
           <CardContent className="grid gap-3">
-            <Code>{`import { PingX } from 'pingx';
+            <Code>{`import { PingX } from 'pingx-mail';
 
 const pingx = new PingX({ apiKey: process.env.PINGX_API_KEY!, baseUrl: '${API}' });
 
@@ -46,7 +46,7 @@ const { id } = await pingx.send({
         <Card>
           <CardHeader><CardTitle>Verify webhooks</CardTitle></CardHeader>
           <CardContent>
-            <Code>{`import { verifyWebhook } from 'pingx';
+            <Code>{`import { verifyWebhook } from 'pingx-mail';
 
 const event = verifyWebhook(rawBody, req.headers['pingx-signature'], process.env.PINGX_WEBHOOK_SECRET!);
 // event.event === 'message.sent' | 'message.failed'`}</Code>

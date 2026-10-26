@@ -6,7 +6,7 @@ Multi-tenant email microservice. Users connect their **own** providers once, at 
 - Resend
 - Amazon SES
 
-Then they build templates and send through one API or the `pingx` npm SDK. PingX tries providers in priority order and **falls back automatically** on provider-side errors (auth, caps, timeouts, 5xx), never on bad recipients.
+Then they build templates and send through one API or the `pingx-mail` npm SDK. PingX tries providers in priority order and **falls back automatically** on provider-side errors (auth, caps, timeouts, 5xx), never on bad recipients.
 
 ```
 apps/api        Express API: auth, providers, projects, templates, quota, /v1 send, billing, admin
@@ -16,7 +16,7 @@ packages/db         Prisma schema, migrations, seed
 packages/channels   SMTP / Gmail API / Resend / SES adapters + error classifier
 packages/templates  HTML + Handlebars rendering
 packages/shared     env, crypto (AES-256-GCM), queue contracts, schemas
-packages/sdk        the `pingx` npm package
+packages/sdk        the `pingx-mail` npm package
 ```
 
 ## Run locally

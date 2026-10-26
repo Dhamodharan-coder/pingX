@@ -17,13 +17,13 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
       - run: corepack enable
-      - run: pnpm install --frozen-lockfile --filter pingx...
+      - run: pnpm install --frozen-lockfile --filter pingx-mail...
       - name: Tag matches package version
         run: |
           v=$(node -p "require('./packages/sdk/package.json').version")
           [ "sdk-v$v" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} != sdk-v$v"; exit 1; }
-      - run: pnpm --filter pingx test
-      - run: pnpm --filter pingx build
+      - run: pnpm --filter pingx-mail test
+      - run: pnpm --filter pingx-mail build
       - run: npm publish --provenance --access public
         working-directory: packages/sdk
         env:

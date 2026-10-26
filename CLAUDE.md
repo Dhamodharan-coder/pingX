@@ -1,6 +1,6 @@
 # PingX
 
-Multi-tenant messaging microservice. Users sign up, connect their own email providers once (SMTP, Gmail OAuth, Resend, SES API), build templates, and send through one API or the `pingx` npm SDK. Email only in v1; push/WhatsApp later via the same `ChannelAdapter` interface.
+Multi-tenant messaging microservice. Users sign up, connect their own email providers once (SMTP, Gmail OAuth, Resend, SES API), build templates, and send through one API or the `pingx-mail` npm SDK. Email only in v1; push/WhatsApp later via the same `ChannelAdapter` interface.
 
 Full spec: @docs/PINGX_PLAN.md — read the relevant section before starting any task.
 Progress tracker: @docs/PROGRESS.md — update it at the end of every task.
@@ -28,7 +28,7 @@ packages/db         prisma schema, migrations, seed
 packages/channels   ChannelAdapter + email adapters (smtp, gmail-api, resend, ses)
 packages/templates  handlebars render (+ legacy mjml → html)
 packages/shared     types, zod schemas, crypto, errors
-packages/sdk        the `pingx` npm package
+packages/sdk        the `pingx-mail` npm package
 ```
 
 ## Architecture

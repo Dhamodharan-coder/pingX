@@ -157,13 +157,13 @@ export interface WebhookEvent {
  * Verifies a PingX webhook. Pass the raw request body (not parsed JSON) and the `PingX-Signature` header.
  * Throws if the signature is invalid or older than `toleranceSec`.
  */
-export function verifyWebhook(rawBody: string | Buffer, signatureHeader: string | undefined, secret: string, toleranceSec = 300): WebhookEvent {
+export function verifyWebhook(rawBody: string | Uint8Array, signatureHeader: string | undefined, secret: string, toleranceSec = 300): WebhookEvent {
   if (!signatureHeader) throw new PingXError(400, 'invalid_signature', 'Missing PingX-Signature header');
   const parts = Object.fromEntries(signatureHeader.split(',').map((p) => p.split('=', 2) as [string, string]));
   const t = Number(parts.t);
   if (!t || !parts.v1) throw new PingXError(400, 'invalid_signature', 'Malformed PingX-Signature header');
   if (Math.abs(Date.now() / 1000 - t) > toleranceSec) throw new PingXError(400, 'invalid_signature', 'Webhook timestamp outside tolerance');
-  const body = typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8');
+  const body = typeof rawBody === 'string' ? rawBody : new TextDecoder().decode(rawBody);
   const expected = createHmac('sha256', secret).update(`${t}.${body}`).digest('hex');
   const a = Buffer.from(expected);
   const b = Buffer.from(parts.v1);
